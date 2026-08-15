@@ -1,0 +1,13 @@
+/* src/index.css */
+@import 'tailwindcss';
+/* @tailwind base;
+@tailwind components;
+@tailwind utilities; */
+
+/* المتصفحات مش بتدّي كل الأزرار cursor:pointer افتراضياً — نضيفها هنا مرة واحدة
+   بدل ما نكرر className="cursor-pointer" يدوياً على كل زر في كل شاشة */
+@layer base {
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
