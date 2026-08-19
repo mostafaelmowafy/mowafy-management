@@ -493,11 +493,11 @@ export default function Evaluations({ onDone, initialGroupId }) {
               {hasHomework && (
                 <>
                   <BulkButton
-                    label="الكل: أنجز الواجب كامل"
+                    label="أنجز الواجب كامل"
                     onClick={() => bulkSetTask('homework', 5)}
                   />
                   <BulkButton
-                    label="الكل: لم ينجز الواجب"
+                    label="لم ينجز الواجب"
                     onClick={() => bulkSetTask('homework', 0)}
                   />
                 </>
@@ -505,11 +505,11 @@ export default function Evaluations({ onDone, initialGroupId }) {
               {hasRecitation && (
                 <>
                   <BulkButton
-                    label="الكل: تسميع كامل"
+                    label="تسميع كامل"
                     onClick={() => bulkSetTask('recitation', 5)}
                   />
                   <BulkButton
-                    label="الكل: لم يسمع"
+                    label="لم يسمع"
                     onClick={() => bulkSetTask('recitation', 5)}
                   />
                 </>
@@ -517,11 +517,11 @@ export default function Evaluations({ onDone, initialGroupId }) {
               {hasParticipation && (
                 <>
                   <BulkButton
-                    label="الكل: تفاعل ممتاز"
+                    label="تفاعل ممتاز"
                     onClick={() => bulkSetTask('participation', 5)}
                   />
                   <BulkButton
-                    label="الكل: تفاعل سيئ"
+                    label="تفاعل سيئ"
                     onClick={() => bulkSetTask('participation', 5)}
                   />
                 </>
