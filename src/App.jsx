@@ -177,6 +177,11 @@ export default function App() {
           <Dashboard
             onGoToArchive={() => goTo("groups")}
             onStartGroupSession={handleStartGroupSession}
+            onGoToGroups={() => goTo("groups")}
+            onGoToAddStudent={() => goTo("addStudent")}
+            onGoToSettings={() => goTo("settings")}
+            onGoToFinance={() => goTo("finance")}
+            onGoToStatistics={() => goTo("statistics")}
           />
         )}
         {view === "scanner" && <AttendanceScanner onDone={() => goTo("dashboard")} />}

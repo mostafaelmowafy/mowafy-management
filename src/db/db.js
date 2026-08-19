@@ -56,6 +56,11 @@ db.students.hook("creating", (primKey, obj) => {
   // كود بسيط وفريد يُستخدم لتوليد QR (يمكن استبداله بـ uuid عند الحاجة)
   obj.qrCode =
     obj.qrCode || `STU-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  // أشهر مستثناة من التقييم التراكمي (اختياري) — [{"2026-08"}, ...] حقل عادي غير مفهرَس
+  obj.excludedMonths = obj.excludedMonths || [];
+  // أشهر مُعفاة من مصروفات الاشتراك (اختياري ومختلف تماماً عن الاستثناء أعلاه —
+  // هذا يخص المالية، ذاك يخص التقييم) — نفس شكل التخزين [{"2026-08"}, ...]
+  obj.feeExemptMonths = obj.feeExemptMonths || [];
 });
 
 db.groups.hook("creating", (primKey, obj) => {
@@ -112,7 +117,8 @@ export async function getPresentTodayCount() {
 
 /**
  * الطلاب "المتأخرين عن الدفع" لشهر معيّن (افتراضياً الشهر الحالي).
- * الطالب يُعتبر متأخراً إن لم يوجد له أي سجل دفع في هذا الشهر.
+ * الطالب يُعتبر متأخراً إن لم يوجد له أي سجل دفع في هذا الشهر — باستثناء الطلاب
+ * المُعفَين صراحةً من مصروفات هذا الشهر تحديداً (student.feeExemptMonths).
  */
 export async function getLatePaymentStudents(month = currentMonthStr()) {
   const activeStudents = await db.students
@@ -127,7 +133,9 @@ export async function getLatePaymentStudents(month = currentMonthStr()) {
 
   const paidStudentIds = new Set(monthPayments.map((p) => p.studentId));
 
-  return activeStudents.filter((s) => !paidStudentIds.has(s.id));
+  return activeStudents.filter(
+    (s) => !paidStudentIds.has(s.id) && !(s.feeExemptMonths || []).includes(month)
+  );
 }
 
 /** إجمالي ما دفعه طالب معيّن عبر كل الأشهر */

@@ -83,13 +83,20 @@ export default function Payments({ onDone }) {
   }, [monthPayments]);
 
   const studentsWithStatus = useMemo(() => {
-    return (students || []).map((s) => ({ student: s, payment: paymentMap.get(s.id) || null }));
-  }, [students, paymentMap]);
+    return (students || []).map((s) => ({
+      student: s,
+      payment: paymentMap.get(s.id) || null,
+      isExempt: (s.feeExemptMonths || []).includes(month),
+    }));
+  }, [students, paymentMap, month]);
 
   const selectedGroup = (activeGroups || []).find((g) => g.id === numericGroupId);
 
-  const paidCount = studentsWithStatus.filter((row) => row.payment).length;
-  const totalStudents = studentsWithStatus.length;
+  // الإحصائيات (كم دفع/إجمالي) تُحتسَب من الطلاب غير المُعفَين فقط — المُعفى لا
+  // يُعتبر "لم يدفع بعد"، فمن غير المنطقي إدراجه ضمن العدد المستهدَف للتحصيل
+  const payableStudents = studentsWithStatus.filter((row) => !row.isExempt);
+  const paidCount = payableStudents.filter((row) => row.payment).length;
+  const totalStudents = payableStudents.length;
   const totalCollected = studentsWithStatus.reduce(
     (sum, row) => sum + (row.payment ? Number(row.payment.amount || 0) : 0),
     0
@@ -108,15 +115,15 @@ export default function Payments({ onDone }) {
   }
 
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-50 font-sans text-slate-800">
+    <div dir="rtl" className="min-h-screen bg-stone-50 font-sans text-stone-900">
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8">
         {/* الرأس */}
         <header className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-slate-900">المدفوعات الشهرية</h1>
+          <h1 className="text-2xl font-bold text-stone-900">المدفوعات الشهرية</h1>
           {onDone && (
             <button
               onClick={onDone}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              className="rounded-lg border border-stone-200 px-3 py-1.5 text-sm font-medium text-stone-500 hover:bg-stone-50"
             >
               العودة
             </button>
@@ -124,13 +131,13 @@ export default function Payments({ onDone }) {
         </header>
 
         {/* الفلاتر */}
-        <div className="mb-4 grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:grid-cols-2">
+        <div className="mb-4 grid grid-cols-1 gap-4 rounded-2xl border border-stone-200 bg-white p-5 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">المجموعة</label>
+            <label className="mb-1.5 block text-sm font-medium text-stone-900">المجموعة</label>
             <select
               value={groupId}
               onChange={(e) => setGroupId(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              className="w-full rounded-lg border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-amber-800 focus:ring-2 focus:ring-amber-100"
             >
               <option value="" disabled>
                 اختر مجموعة...
@@ -144,11 +151,11 @@ export default function Payments({ onDone }) {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">الشهر</label>
+            <label className="mb-1.5 block text-sm font-medium text-stone-900">الشهر</label>
             <select
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              className="w-full rounded-lg border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-amber-800 focus:ring-2 focus:ring-amber-100"
             >
               {monthOptions.map((m) => (
                 <option key={m.value} value={m.value}>
@@ -162,15 +169,15 @@ export default function Payments({ onDone }) {
         {/* بطاقة الإجماليات */}
         {numericGroupId && (
           <div className="mb-6 grid grid-cols-2 gap-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <p className="text-sm text-slate-500">إجمالي المُحصَّل — {monthLabel(month)}</p>
+            <div className="rounded-2xl border border-stone-200 bg-white p-4">
+              <p className="text-sm text-stone-500">إجمالي المُحصَّل — {monthLabel(month)}</p>
               <p className="mt-1 text-2xl font-bold text-emerald-600">{totalCollected} ج.م</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <p className="text-sm text-slate-500">عدد الدافعين</p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">
+            <div className="rounded-2xl border border-stone-200 bg-white p-4">
+              <p className="text-sm text-stone-500">عدد الدافعين</p>
+              <p className="mt-1 text-2xl font-bold text-stone-900">
                 {paidCount}
-                <span className="text-base font-normal text-slate-400"> / {totalStudents}</span>
+                <span className="text-base font-normal text-stone-400"> / {totalStudents}</span>
               </p>
             </div>
           </div>
@@ -178,13 +185,13 @@ export default function Payments({ onDone }) {
 
         {/* حالات فارغة */}
         {!numericGroupId && (
-          <p className="rounded-xl border border-dashed border-slate-300 bg-white py-10 text-center text-sm text-slate-500">
+          <p className="rounded-xl border border-dashed border-stone-200 bg-white py-10 text-center text-sm text-stone-500">
             اختر مجموعة لعرض حالة المدفوعات.
           </p>
         )}
 
         {numericGroupId && studentsWithStatus.length === 0 && (
-          <p className="rounded-xl border border-dashed border-slate-300 bg-white py-10 text-center text-sm text-slate-500">
+          <p className="rounded-xl border border-dashed border-stone-200 bg-white py-10 text-center text-sm text-stone-500">
             لا يوجد طلاب نشطون في هذه المجموعة.
           </p>
         )}
@@ -192,12 +199,13 @@ export default function Payments({ onDone }) {
         {/* قائمة الطلاب */}
         {numericGroupId && studentsWithStatus.length > 0 && (
           <div className="space-y-3">
-            {studentsWithStatus.map(({ student, payment }) => (
+            {studentsWithStatus.map(({ student, payment, isExempt }) => (
               <PaymentRow
                 key={student.id}
                 student={student}
                 group={selectedGroup}
                 payment={payment}
+                isExempt={isExempt}
                 month={month}
                 onPay={(amount) => handlePay(student.id, amount)}
               />
@@ -212,11 +220,11 @@ export default function Payments({ onDone }) {
 // ========================================================================
 // صف طالب واحد
 // ========================================================================
-function PaymentRow({ student, group, payment, month, onPay }) {
+function PaymentRow({ student, group, payment, isExempt, month, onPay }) {
   const [amount, setAmount] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const whatsappHref = student.parentPhone
+  const whatsappHref = student.parentPhone && !isExempt
     ? buildWhatsAppLink(student, group, month, payment)
     : null;
 
@@ -232,20 +240,25 @@ function PaymentRow({ student, group, payment, month, onPay }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-2xl border border-stone-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <p className="font-semibold text-slate-900">{student.name}</p>
-        <p className="text-xs text-slate-500">{student.parentPhone || "لا يوجد رقم ولي أمر"}</p>
+        <p className="font-semibold text-stone-900">{student.name}</p>
+        <p className="text-xs text-stone-500">{student.parentPhone || "لا يوجد رقم ولي أمر"}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-        {payment ? (
+        {isExempt ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1.5 text-sm font-semibold text-stone-600">
+            <ExemptIcon />
+            معفى هذا الشهر
+          </span>
+        ) : payment ? (
           <>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700">
               <CheckIcon />
               تم الدفع — {payment.amount} ج.م
             </span>
-            <span className="text-xs text-slate-400">{formatDateArabic(payment.paymentDate)}</span>
+            <span className="text-xs text-stone-400">{formatDateArabic(payment.paymentDate)}</span>
           </>
         ) : (
           <>
@@ -255,12 +268,12 @@ function PaymentRow({ student, group, payment, month, onPay }) {
               placeholder="المبلغ"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-28 rounded-lg border border-slate-200 px-2.5 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              className="w-28 rounded-lg border border-stone-200 px-2.5 py-2 text-sm outline-none focus:border-amber-800 focus:ring-2 focus:ring-amber-100"
             />
             <button
               onClick={handlePayClick}
               disabled={!amount || saving}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="rounded-lg bg-amber-800 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-900 disabled:opacity-50"
             >
               {saving ? "جارِ الحفظ..." : "تسديد"}
             </button>
@@ -274,7 +287,7 @@ function PaymentRow({ student, group, payment, month, onPay }) {
             rel="noreferrer"
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ${
               payment
-                ? "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                ? "bg-stone-50 text-stone-500 hover:bg-stone-50"
                 : "bg-amber-50 text-amber-700 hover:bg-amber-100"
             }`}
           >
@@ -299,6 +312,7 @@ function buildWhatsAppLink(student, group, month, payment) {
   const message = fillTemplate(template.body, {
     "[اسم_الطالب]": student.name,
     "[المجموعة]": group?.groupName || "",
+    "[المادة]": "",
     "[اسم_الشهر]": monthLabel(month),
     "[المبلغ]": payment ? String(payment.amount) : "",
     // متغيرات غير متعلقة بالمدفوعات — تُترك فارغة إن استخدمها المدرس هنا بالخطأ
@@ -313,6 +327,13 @@ function buildWhatsAppLink(student, group, month, payment) {
   return buildWaLink(student.parentPhone, message);
 }
 
+function ExemptIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+    </svg>
+  );
+}
 function CheckIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
