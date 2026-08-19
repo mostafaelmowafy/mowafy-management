@@ -6,10 +6,12 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
+import StudentCard from "./StudentCard";
 
 export default function GroupStudents({ group, onBack }) {
   const [editingStudent, setEditingStudent] = useState(null);
   const [confirmingDelete, setConfirmingDelete] = useState(null);
+  const [viewingCardOf, setViewingCardOf] = useState(null);
 
   const students = useLiveQuery(
     () => db.students.where("groupId").equals(group.id).toArray(),
@@ -81,6 +83,12 @@ export default function GroupStudents({ group, onBack }) {
 
               <div className="flex shrink-0 gap-1.5">
                 <button
+                  onClick={() => setViewingCardOf(s)}
+                  className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
+                >
+                  الكارنيه
+                </button>
+                <button
                   onClick={() => setEditingStudent(s)}
                   className="rounded-lg border border-stone-200 px-2.5 py-1.5 text-xs font-medium text-stone-500 hover:bg-stone-50"
                 >
@@ -110,6 +118,26 @@ export default function GroupStudents({ group, onBack }) {
           groups={activeGroups || []}
           onClose={() => setEditingStudent(null)}
         />
+      )}
+
+      {viewingCardOf && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-8 overflow-y-auto"
+          onClick={() => setViewingCardOf(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <StudentCard student={viewingCardOf} groupName={group.groupName} />
+            <button
+              onClick={() => setViewingCardOf(null)}
+              className="mt-3 w-full rounded-lg border border-stone-200 px-4 py-2.5 text-sm font-medium text-stone-500 hover:bg-stone-50"
+            >
+              إغلاق
+            </button>
+          </div>
+        </div>
       )}
 
       {confirmingDelete && (
