@@ -14,8 +14,8 @@ export default defineConfig({
       // إن كنت تفضل الملف اليدوي (كما أرفقته سابقاً)، احذف هذا الكائن كاملاً
       // واترك vite-plugin-pwa يستخدم public/manifest.json مباشرة عبر includeManifestIcons.
       manifest: {
-        name: 'حَصيف',
-        short_name: 'حَصيف',
+        name: 'موافي',
+        short_name: 'موافي',
         description:
           'نظام محلي (Offline) لإدارة الحضور والتقييم والمدفوعات للمدرّسين',
         start_url: '/',
