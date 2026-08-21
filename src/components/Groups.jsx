@@ -3,20 +3,21 @@
 // أول ما تفتح الشاشة تشوف المجموعات النشطة مباشرة. "إضافة مجموعة جديدة" بقى زر
 // يفتح فورم في نافذة منبثقة (بدل ما يكون ظاهر وثابت فوق طول الوقت).
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
 import { DAY_NAMES_AR } from "../lib/schedule";
 import GroupStudents from "./GroupStudents";
 
-export default function Groups({ onDone }) {
+export default function Groups({ onDone, studentTarget, onConsumedStudentTarget }) {
   const [activeTab, setActiveTab] = useState("active"); // active | archived
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [groupToEdit, setGroupToEdit] = useState(null); // مجموعة قيد التعديل الكامل
   const [groupToArchive, setGroupToArchive] = useState(null); // مجموعة قيد تأكيد الأرشفة
   const [groupToDelete, setGroupToDelete] = useState(null); // مجموعة قيد تأكيد الحذف النهائي
   const [viewingStudentsOf, setViewingStudentsOf] = useState(null); // مجموعة نعرض طلابها حالياً
+  const [highlightStudentId, setHighlightStudentId] = useState(null); // نتيجة بحث نبرزها في القائمة
 
   // ------------------------------------------------------------
   // استعلامات حيّة
@@ -47,6 +48,20 @@ export default function Groups({ onDone }) {
     });
     return map;
   }, [activeStudents]);
+
+  // نتيجة بحث تم اختيارها من شاشة أخرى (App.jsx) — نقفز مباشرة لطلاب مجموعتها
+  useEffect(() => {
+    if (!studentTarget || !activeGroups || !archivedGroups) return;
+    const group =
+      activeGroups.find((g) => g.id === studentTarget.groupId) ||
+      archivedGroups.find((g) => g.id === studentTarget.groupId);
+    if (group) {
+      setViewingStudentsOf(group);
+      setHighlightStudentId(studentTarget.studentId);
+    }
+    onConsumedStudentTarget?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentTarget, activeGroups, archivedGroups]);
 
   // ------------------------------------------------------------
   // الأرشفة مع تأثير Cascade على الطلاب
@@ -94,19 +109,28 @@ export default function Groups({ onDone }) {
   // الضغط على بطاقة مجموعة يفتح شاشة "طلاب هذه المجموعة" بدل شاشة إدارة المجموعات
   // (بعد كل الـ Hooks أعلاه، حتى لا يختلف عدد/ترتيب استدعاءات الـ Hooks بين الرندرات)
   if (viewingStudentsOf) {
-    return <GroupStudents group={viewingStudentsOf} onBack={() => setViewingStudentsOf(null)} />;
+    return (
+      <GroupStudents
+        group={viewingStudentsOf}
+        onBack={() => {
+          setViewingStudentsOf(null);
+          setHighlightStudentId(null);
+        }}
+        highlightStudentId={highlightStudentId}
+      />
+    );
   }
 
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-50 font-sans text-slate-800">
+    <div dir="rtl" className="min-h-screen bg-stone-50 font-sans text-stone-900">
       <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
         {/* الرأس */}
         <header className="mb-5 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-slate-900">إدارة المجموعات</h1>
+          <h1 className="text-2xl font-bold text-stone-900">إدارة المجموعات</h1>
           {onDone && (
             <button
               onClick={onDone}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              className="rounded-lg border border-stone-200 px-3 py-1.5 text-sm font-medium text-stone-500 hover:bg-stone-50"
             >
               العودة
             </button>
@@ -116,14 +140,14 @@ export default function Groups({ onDone }) {
         {/* زر إضافة مجموعة جديدة */}
         <button
           onClick={() => setShowAddDialog(true)}
-          className="mb-5 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-700 active:scale-[0.98] sm:w-auto"
+          className="mb-5 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-800 px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-amber-200 transition hover:bg-amber-900 active:scale-[0.98] sm:w-auto"
         >
           <PlusIcon />
           إضافة مجموعة جديدة
         </button>
 
         {/* التبويبات */}
-        <div className="mb-4 inline-flex rounded-xl border border-slate-200 bg-white p-1">
+        <div className="mb-4 inline-flex rounded-xl border border-stone-200 bg-white p-1">
           <TabButton active={activeTab === "active"} onClick={() => setActiveTab("active")}>
             المجموعات النشطة
             <CountBadge count={(activeGroups || []).length} />
@@ -138,7 +162,7 @@ export default function Groups({ onDone }) {
         {activeTab === "active" && (
           <>
             {activeGroups && activeGroups.length === 0 && (
-              <p className="rounded-xl border border-dashed border-slate-300 bg-white py-10 text-center text-sm text-slate-500">
+              <p className="rounded-xl border border-dashed border-stone-200 bg-white py-10 text-center text-sm text-stone-500">
                 لا توجد مجموعات نشطة بعد. اضغط "إضافة مجموعة جديدة" أعلاه للبدء.
               </p>
             )}
@@ -163,7 +187,7 @@ export default function Groups({ onDone }) {
         {activeTab === "archived" && (
           <>
             {archivedGroups && archivedGroups.length === 0 && (
-              <p className="rounded-xl border border-dashed border-slate-300 bg-white py-10 text-center text-sm text-slate-500">
+              <p className="rounded-xl border border-dashed border-stone-200 bg-white py-10 text-center text-sm text-stone-500">
                 لا توجد مجموعات مؤرشفة حتى الآن.
               </p>
             )}
@@ -255,7 +279,7 @@ function AddGroupDialog({ onClose }) {
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
       >
-        <h3 className="mb-4 text-base font-bold text-slate-900">إضافة مجموعة جديدة</h3>
+        <h3 className="mb-4 text-base font-bold text-stone-900">إضافة مجموعة جديدة</h3>
 
         <div className="space-y-4">
           <Field label="اسم المجموعة" error={errors.groupName?.message}>
@@ -290,7 +314,7 @@ function AddGroupDialog({ onClose }) {
           </Field>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-stone-900">
               مواعيد الحصص الأسبوعية (اختياري)
             </label>
             <ScheduleEditor value={schedule} onChange={setSchedule} />
@@ -301,14 +325,14 @@ function AddGroupDialog({ onClose }) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+            className="flex-1 rounded-lg bg-amber-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-900 disabled:opacity-60"
           >
             {isSubmitting ? "جارِ الحفظ..." : "إضافة المجموعة"}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            className="flex-1 rounded-lg border border-stone-200 px-4 py-2.5 text-sm font-medium text-stone-500 hover:bg-stone-50"
           >
             إلغاء
           </button>
@@ -355,7 +379,7 @@ function EditGroupDialog({ group, onClose }) {
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
       >
-        <h3 className="mb-4 text-base font-bold text-slate-900">تعديل بيانات المجموعة</h3>
+        <h3 className="mb-4 text-base font-bold text-stone-900">تعديل بيانات المجموعة</h3>
 
         <div className="space-y-4">
           <Field label="اسم المجموعة" error={errors.groupName?.message}>
@@ -382,7 +406,7 @@ function EditGroupDialog({ group, onClose }) {
           </Field>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            <label className="mb-1.5 block text-sm font-medium text-stone-900">
               مواعيد الحصص الأسبوعية
             </label>
             <ScheduleEditor value={schedule} onChange={setSchedule} />
@@ -393,14 +417,14 @@ function EditGroupDialog({ group, onClose }) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+            className="flex-1 rounded-lg bg-amber-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-900 disabled:opacity-60"
           >
             {isSubmitting ? "جارِ الحفظ..." : "حفظ التعديلات"}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            className="flex-1 rounded-lg border border-stone-200 px-4 py-2.5 text-sm font-medium text-stone-500 hover:bg-stone-50"
           >
             إلغاء
           </button>
@@ -416,26 +440,26 @@ function EditGroupDialog({ group, onClose }) {
 function GroupCard({ group, studentCount, onArchive, onDelete, onEdit, onViewStudents }) {
   const schedule = group.schedule || [];
   return (
-    <div className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5">
+    <div className="flex flex-col justify-between rounded-2xl border border-stone-200 bg-white p-5">
       <button
         type="button"
         onClick={onViewStudents}
-        className="-m-1 rounded-xl p-1 text-right transition hover:bg-slate-50"
+        className="-m-1 rounded-xl p-1 text-right transition hover:bg-stone-50"
         aria-label={`عرض طلاب ${group.groupName}`}
       >
         <div className="mb-2 flex items-start justify-between gap-2">
-          <h3 className="text-base font-bold text-slate-900">{group.groupName}</h3>
-          <span className="shrink-0 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-600">
+          <h3 className="text-base font-bold text-stone-900">{group.groupName}</h3>
+          <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
             {group.academicYear}
           </span>
         </div>
-        <p className="mb-2 flex items-center gap-1.5 text-sm text-slate-500">
+        <p className="mb-2 flex items-center gap-1.5 text-sm text-stone-500">
           <UsersIcon />
           {studentCount} طالب نشط — اضغط لعرض القائمة
         </p>
 
         {schedule.length > 0 ? (
-          <p className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+          <p className="flex flex-wrap items-center gap-1.5 text-xs text-stone-500">
             <ClockIcon />
             {schedule
               .slice()
@@ -454,7 +478,7 @@ function GroupCard({ group, studentCount, onArchive, onDelete, onEdit, onViewStu
       <div className="mt-4 grid grid-cols-3 gap-2">
         <button
           onClick={onEdit}
-          className="rounded-lg border border-slate-200 px-2 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+          className="rounded-lg border border-stone-200 px-2 py-2 text-xs font-semibold text-stone-500 transition hover:bg-stone-50"
         >
           تعديل
         </button>
@@ -487,12 +511,12 @@ function formatTime12h(timeStr) {
 // ======================================================================
 function ArchivedGroupCard({ group }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-5 opacity-80">
+    <div className="flex items-center justify-between rounded-2xl border border-stone-200 bg-stone-50 p-5 opacity-80">
       <div>
-        <h3 className="text-base font-bold text-slate-700">{group.groupName}</h3>
-        <p className="text-sm text-slate-500">{group.academicYear}</p>
+        <h3 className="text-base font-bold text-stone-900">{group.groupName}</h3>
+        <p className="text-sm text-stone-500">{group.academicYear}</p>
       </div>
-      <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-600">
+      <span className="rounded-full bg-stone-50 px-3 py-1 text-xs font-semibold text-stone-500">
         مؤرشفة
       </span>
     </div>
@@ -517,7 +541,7 @@ function ConfirmDialog({ title, message, confirmLabel, confirmColor = "rose", on
   const confirmClass =
     confirmColor === "rose"
       ? "bg-rose-600 hover:bg-rose-700"
-      : "bg-indigo-600 hover:bg-indigo-700";
+      : "bg-amber-800 hover:bg-amber-900";
 
   return (
     <div
@@ -528,8 +552,8 @@ function ConfirmDialog({ title, message, confirmLabel, confirmColor = "rose", on
         className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-2 text-lg font-bold text-slate-900">{title}</h3>
-        <p className="mb-5 text-sm leading-relaxed text-slate-600">{message}</p>
+        <h3 className="mb-2 text-lg font-bold text-stone-900">{title}</h3>
+        <p className="mb-5 text-sm leading-relaxed text-stone-500">{message}</p>
         <div className="flex gap-3">
           <button
             onClick={handleConfirm}
@@ -541,7 +565,7 @@ function ConfirmDialog({ title, message, confirmLabel, confirmColor = "rose", on
           <button
             onClick={onCancel}
             disabled={confirming}
-            className="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            className="flex-1 rounded-lg border border-stone-200 px-4 py-2.5 text-sm font-medium text-stone-500 hover:bg-stone-50"
           >
             تراجع
           </button>
@@ -575,7 +599,7 @@ function ScheduleEditor({ value, onChange }) {
           <select
             value={row.day}
             onChange={(e) => updateRow(index, { day: Number(e.target.value) })}
-            className="flex-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            className="flex-1 rounded-lg border border-stone-200 px-2.5 py-2 text-sm outline-none focus:border-amber-800 focus:ring-2 focus:ring-amber-100"
           >
             {DAY_NAMES_AR.map((name, dayIndex) => (
               <option key={dayIndex} value={dayIndex}>
@@ -587,13 +611,13 @@ function ScheduleEditor({ value, onChange }) {
             type="time"
             value={row.time}
             onChange={(e) => updateRow(index, { time: e.target.value })}
-            className="w-32 rounded-lg border border-slate-200 px-2.5 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            className="w-32 rounded-lg border border-stone-200 px-2.5 py-2 text-sm outline-none focus:border-amber-800 focus:ring-2 focus:ring-amber-100"
           />
           <button
             type="button"
             onClick={() => removeRow(index)}
             aria-label="حذف الموعد"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-stone-400 hover:bg-rose-50 hover:text-rose-600"
           >
             <CloseIcon />
           </button>
@@ -603,7 +627,7 @@ function ScheduleEditor({ value, onChange }) {
       <button
         type="button"
         onClick={addRow}
-        className="w-full rounded-lg border border-dashed border-slate-300 px-3 py-2 text-xs font-medium text-slate-500 hover:border-indigo-300 hover:text-indigo-600"
+        className="w-full rounded-lg border border-dashed border-stone-200 px-3 py-2 text-xs font-medium text-stone-500 hover:border-amber-800 hover:text-amber-800"
       >
         + إضافة يوم وموعد
       </button>
@@ -617,7 +641,7 @@ function ScheduleEditor({ value, onChange }) {
 function Field({ label, error, children }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-medium text-slate-700">{label}</label>
+      <label className="mb-1.5 block text-sm font-medium text-stone-900">{label}</label>
       {children}
       {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
     </div>
@@ -627,8 +651,8 @@ function Field({ label, error, children }) {
 function inputClass(hasError) {
   return [
     "w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition",
-    "focus:ring-2 focus:ring-indigo-100",
-    hasError ? "border-rose-300 focus:border-rose-400" : "border-slate-200 focus:border-indigo-400",
+    "focus:ring-2 focus:ring-amber-100",
+    hasError ? "border-rose-300 focus:border-rose-400" : "border-stone-200 focus:border-amber-800",
   ].join(" ");
 }
 
@@ -637,7 +661,7 @@ function TabButton({ active, onClick, children }) {
     <button
       onClick={onClick}
       className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${
-        active ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-50"
+        active ? "bg-amber-800 text-white" : "text-stone-500 hover:bg-stone-50"
       }`}
     >
       {children}
@@ -649,7 +673,7 @@ function CountBadge({ count, muted }) {
   return (
     <span
       className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-        muted ? "bg-slate-200 text-slate-500" : "bg-white/20 text-white"
+        muted ? "bg-stone-50 text-stone-500" : "bg-white text-white"
       }`}
     >
       {count}

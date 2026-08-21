@@ -6,24 +6,20 @@
 // - كل بند تقييم (تفاعل/واجب/تسميع/امتحان) يُخزَّن كسجل منفصل في db.tasks مربوط
 //   بالطالب والتاريخ ونوع البند (kind)، عبر الفهرس المركب [studentId+date+kind].
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db, todayStr } from '../db/db';
-import {
-  getDefaultTemplate,
-  fillTemplate,
-  buildWhatsAppLink as buildWaLink,
-} from '../lib/whatsappTemplates';
-import { loadSubjects } from '../lib/subjects';
-import { loadPointsSettings } from '../lib/points';
-import { computeSessionScore } from '../lib/scoring';
+import React, { useEffect, useMemo, useState } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db, todayStr } from "../db/db";
+import { getDefaultTemplate, fillTemplate, buildWhatsAppLink as buildWaLink } from "../lib/whatsappTemplates";
+import { loadSubjects } from "../lib/subjects";
+import { loadPointsSettings } from "../lib/points";
+import { computeSessionScore } from "../lib/scoring";
 
 // ----------------------------------------------------------------------
 // دوال حفظ (Upsert) — تكتب في Dexie مباشرة عند أي تغيير من المدرس
 // ----------------------------------------------------------------------
 async function upsertAttendance(studentId, date, status) {
   const existing = await db.attendance
-    .where('[studentId+date]')
+    .where("[studentId+date]")
     .equals([studentId, date])
     .first();
   if (existing) {
@@ -35,7 +31,7 @@ async function upsertAttendance(studentId, date, status) {
 
 async function upsertTask(studentId, groupId, date, kind, patch) {
   const existing = await db.tasks
-    .where('[studentId+date+kind]')
+    .where("[studentId+date+kind]")
     .equals([studentId, date, kind])
     .first();
   if (existing) {
@@ -47,7 +43,7 @@ async function upsertTask(studentId, groupId, date, kind, patch) {
 
 async function upsertSession(groupId, date, patch) {
   const existing = await db.sessions
-    .where('[groupId+date]')
+    .where("[groupId+date]")
     .equals([groupId, date])
     .first();
   if (existing) {
@@ -57,8 +53,8 @@ async function upsertSession(groupId, date, patch) {
       groupId,
       date,
       hasExam: false,
-      examTotal: '',
-      subject: '',
+      examTotal: "",
+      subject: "",
       hasParticipation: true,
       hasHomework: true,
       hasRecitation: true,
@@ -68,34 +64,34 @@ async function upsertSession(groupId, date, patch) {
 }
 
 // نصوص عربية تُستخدم في الواجهة وفي رسالة الواتساب
-const ATTENDANCE_LABEL = { Present: 'حاضر', Absent: 'غائب', Excused: 'مستثنى' };
+const ATTENDANCE_LABEL = { Present: "حاضر", Absent: "غائب", Excused: "مستثنى" };
 
 // تحويل عدد نجوم الواجب لوصف نصي في رسالة الواتساب (الواجهة نفسها تعرض النجوم كما هي)
 function homeworkLabelFromStars(stars) {
   const s = Number(stars) || 0;
-  if (s === 0) return 'لم ينجز';
-  if (s <= 2) return 'أنجز بشكل ضعيف';
-  if (s <= 3) return 'أنجز بشكل جيد';
-  return 'أنجز بشكل كامل'; // (3, 5]
+  if (s === 0) return "لم ينجز";
+  if (s <= 2) return "أنجز بشكل ضعيف";
+  if (s <= 3) return "أنجز بشكل جيد";
+  return "أنجز بشكل كامل"; // (3, 5]
 }
 
 // تحويل عدد نجوم التسميع لوصف نصي في رسالة الواتساب (نفس منطق الواجب)
 function recitationLabelFromStars(stars) {
   const s = Number(stars) || 0;
-  if (s === 0) return 'لم يسمّع';
-  if (s <= 2) return 'سمّع بشكل ضعيف';
-  if (s <= 3) return 'سمّع بشكل جيد';
-  return 'سمّع بشكل كامل'; // (3, 5]
+  if (s === 0) return "لم يسمّع";
+  if (s <= 2) return "سمّع بشكل ضعيف";
+  if (s <= 3) return "سمّع بشكل جيد";
+  return "سمّع بشكل كامل"; // (3, 5]
 }
 
 // تحويل عدد نجوم التفاعل لوصف نصي في رسالة الواتساب
 function participationLabelFromStars(stars) {
   const s = Number(stars) || 0;
-  if (s === 0) return 'سيئ';
-  if (s <= 1) return 'ضعيف';
-  if (s <= 2) return 'جيد';
-  if (s <= 3) return 'جيد جداً';
-  return 'ممتاز'; // (3, 5]
+  if (s === 0) return "سيئ";
+  if (s <= 1) return "ضعيف";
+  if (s <= 2) return "جيد";
+  if (s <= 3) return "جيد جداً";
+  return "ممتاز"; // (3, 5]
 }
 
 // ========================================================================
@@ -103,15 +99,13 @@ export default function Evaluations({ onDone, initialGroupId }) {
   const points = useMemo(() => loadPointsSettings(), []);
   const subjects = useMemo(() => loadSubjects(), []); // فاضية = ميزة المواد غير مفعّلة
 
-  const [groupId, setGroupId] = useState(
-    initialGroupId ? String(initialGroupId) : '',
-  );
+  const [groupId, setGroupId] = useState(initialGroupId ? String(initialGroupId) : "");
   const [date, setDate] = useState(todayStr());
 
   const activeGroups = useLiveQuery(
-    () => db.groups.where('isArchived').equals(0).toArray(),
+    () => db.groups.where("isArchived").equals(0).toArray(),
     [],
-    [],
+    []
   );
 
   useEffect(() => {
@@ -138,15 +132,11 @@ export default function Evaluations({ onDone, initialGroupId }) {
   }
 
   function toggleSelectAll(allIds) {
-    setSelectedIds((prev) =>
-      prev.size === allIds.length ? new Set() : new Set(allIds),
-    );
+    setSelectedIds((prev) => (prev.size === allIds.length ? new Set() : new Set(allIds)));
   }
 
   async function bulkSetAttendance(status) {
-    await Promise.all(
-      Array.from(selectedIds).map((id) => upsertAttendance(id, date, status)),
-    );
+    await Promise.all(Array.from(selectedIds).map((id) => upsertAttendance(id, date, status)));
   }
 
   async function bulkSetTask(kind, stars) {
@@ -154,29 +144,23 @@ export default function Evaluations({ onDone, initialGroupId }) {
       Array.from(selectedIds).map((id) => {
         const student = (students || []).find((s) => s.id === id);
         if (!student) return Promise.resolve();
-        return upsertTask(id, student.groupId, date, kind, {
-          stars,
-          isExcused: false,
-        });
-      }),
+        return upsertTask(id, student.groupId, date, kind, { stars, isExcused: false });
+      })
     );
   }
 
   const session = useLiveQuery(
     () =>
       numericGroupId
-        ? db.sessions
-            .where('[groupId+date]')
-            .equals([numericGroupId, date])
-            .first()
+        ? db.sessions.where("[groupId+date]").equals([numericGroupId, date]).first()
         : Promise.resolve(null),
     [numericGroupId, date],
-    null,
+    null
   );
 
   const hasExam = session?.hasExam ?? false;
-  const examTotal = session?.examTotal ?? '';
-  const subject = session?.subject ?? (subjects[0] || '');
+  const examTotal = session?.examTotal ?? "";
+  const subject = session?.subject ?? (subjects[0] || "");
   // البنود الثلاثة دي مفعّلة افتراضياً (زي السلوك القديم) إلا لو المدرس عطّلها يدوياً لهذا اليوم
   const hasParticipation = session?.hasParticipation ?? true;
   const hasHomework = session?.hasHomework ?? true;
@@ -186,25 +170,25 @@ export default function Evaluations({ onDone, initialGroupId }) {
     () =>
       numericGroupId
         ? db.students
-            .where('groupId')
+            .where("groupId")
             .equals(numericGroupId)
             .and((s) => !s.isArchived)
             .toArray()
         : Promise.resolve([]),
     [numericGroupId],
-    [],
+    []
   );
 
   const attendanceForDate = useLiveQuery(
-    () => db.attendance.where('date').equals(date).toArray(),
+    () => db.attendance.where("date").equals(date).toArray(),
     [date],
-    [],
+    []
   );
 
   const tasksForDate = useLiveQuery(
-    () => db.tasks.where('date').equals(date).toArray(),
+    () => db.tasks.where("date").equals(date).toArray(),
     [date],
-    [],
+    []
   );
 
   const attendanceMap = useMemo(() => {
@@ -214,7 +198,7 @@ export default function Evaluations({ onDone, initialGroupId }) {
   }, [attendanceForDate]);
 
   const emptyField = { stars: 0, isExcused: false };
-  const emptyExam = { score: '', isExcused: false };
+  const emptyExam = { score: "", isExcused: false };
 
   const tasksMap = useMemo(() => {
     const map = new Map(); // studentId -> { participation, homework, recitation, exam }
@@ -228,21 +212,17 @@ export default function Evaluations({ onDone, initialGroupId }) {
         });
       }
       const entry = map.get(t.studentId);
-      if (t.kind === 'participation')
-        entry.participation = { stars: t.stars ?? 0, isExcused: !!t.isExcused };
-      if (t.kind === 'homework')
-        entry.homework = { stars: t.stars ?? 0, isExcused: !!t.isExcused };
-      if (t.kind === 'recitation')
-        entry.recitation = { stars: t.stars ?? 0, isExcused: !!t.isExcused };
-      if (t.kind === 'exam')
-        entry.exam = { score: t.score ?? '', isExcused: !!t.isExcused };
+      if (t.kind === "participation") entry.participation = { stars: t.stars ?? 0, isExcused: !!t.isExcused };
+      if (t.kind === "homework") entry.homework = { stars: t.stars ?? 0, isExcused: !!t.isExcused };
+      if (t.kind === "recitation") entry.recitation = { stars: t.stars ?? 0, isExcused: !!t.isExcused };
+      if (t.kind === "exam") entry.exam = { score: t.score ?? "", isExcused: !!t.isExcused };
     });
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasksForDate]);
 
   function getStudentEval(studentId) {
-    const attendance = attendanceMap.get(studentId) || 'Absent';
+    const attendance = attendanceMap.get(studentId) || "Absent";
     const defaults = {
       participation: { ...emptyField },
       homework: { ...emptyField },
@@ -253,9 +233,7 @@ export default function Evaluations({ onDone, initialGroupId }) {
     return { attendance, ...t };
   }
 
-  const selectedGroup = (activeGroups || []).find(
-    (g) => g.id === numericGroupId,
-  );
+  const selectedGroup = (activeGroups || []).find((g) => g.id === numericGroupId);
 
   const availablePoints =
     points.attendance +
@@ -265,10 +243,7 @@ export default function Evaluations({ onDone, initialGroupId }) {
     (hasExam ? points.exam : 0);
 
   return (
-    <div
-      dir="rtl"
-      className="min-h-screen bg-stone-50 font-sans text-stone-900"
-    >
+    <div dir="rtl" className="min-h-screen bg-stone-50 font-sans text-stone-900">
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
         {/* الرأس */}
         <header className="mb-6 flex items-center justify-between">
@@ -287,9 +262,7 @@ export default function Evaluations({ onDone, initialGroupId }) {
         <div className="mb-6 rounded-2xl border border-stone-200 bg-white p-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-stone-900">
-                المجموعة
-              </label>
+              <label className="mb-1.5 block text-sm font-medium text-stone-900">المجموعة</label>
               <select
                 value={groupId}
                 onChange={(e) => setGroupId(e.target.value)}
@@ -307,9 +280,7 @@ export default function Evaluations({ onDone, initialGroupId }) {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-stone-900">
-                التاريخ
-              </label>
+              <label className="mb-1.5 block text-sm font-medium text-stone-900">التاريخ</label>
               <input
                 type="date"
                 value={date}
@@ -320,16 +291,11 @@ export default function Evaluations({ onDone, initialGroupId }) {
 
             {subjects.length > 0 && (
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-stone-900">
-                  المادة
-                </label>
+                <label className="mb-1.5 block text-sm font-medium text-stone-900">المادة</label>
                 <select
                   value={subject}
                   onChange={(e) =>
-                    numericGroupId &&
-                    upsertSession(numericGroupId, date, {
-                      subject: e.target.value,
-                    })
+                    numericGroupId && upsertSession(numericGroupId, date, { subject: e.target.value })
                   }
                   className="w-full rounded-lg border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-amber-800 focus:ring-2 focus:ring-amber-100"
                 >
@@ -354,10 +320,7 @@ export default function Evaluations({ onDone, initialGroupId }) {
                   value={examTotal}
                   onChange={(e) =>
                     numericGroupId &&
-                    upsertSession(numericGroupId, date, {
-                      hasExam: true,
-                      examTotal: e.target.value,
-                    })
+                    upsertSession(numericGroupId, date, { hasExam: true, examTotal: e.target.value })
                   }
                   className="w-full rounded-lg border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-amber-800 focus:ring-2 focus:ring-amber-100"
                 />
@@ -375,7 +338,7 @@ export default function Evaluations({ onDone, initialGroupId }) {
                 numericGroupId &&
                 upsertSession(numericGroupId, date, {
                   hasExam: checked,
-                  examTotal: checked ? examTotal || '' : '',
+                  examTotal: checked ? examTotal || "" : "",
                 })
               }
             />
@@ -384,8 +347,7 @@ export default function Evaluations({ onDone, initialGroupId }) {
               checked={hasHomework}
               disabled={!numericGroupId}
               onChange={(checked) =>
-                numericGroupId &&
-                upsertSession(numericGroupId, date, { hasHomework: checked })
+                numericGroupId && upsertSession(numericGroupId, date, { hasHomework: checked })
               }
             />
             <SessionToggle
@@ -393,8 +355,7 @@ export default function Evaluations({ onDone, initialGroupId }) {
               checked={hasRecitation}
               disabled={!numericGroupId}
               onChange={(checked) =>
-                numericGroupId &&
-                upsertSession(numericGroupId, date, { hasRecitation: checked })
+                numericGroupId && upsertSession(numericGroupId, date, { hasRecitation: checked })
               }
             />
             <SessionToggle
@@ -402,17 +363,12 @@ export default function Evaluations({ onDone, initialGroupId }) {
               checked={hasParticipation}
               disabled={!numericGroupId}
               onChange={(checked) =>
-                numericGroupId &&
-                upsertSession(numericGroupId, date, {
-                  hasParticipation: checked,
-                })
+                numericGroupId && upsertSession(numericGroupId, date, { hasParticipation: checked })
               }
             />
           </div>
 
-          <p className="mt-3 text-xs text-stone-400">
-            مجموع نقاط الحصة: {availablePoints}
-          </p>
+          <p className="mt-3 text-xs text-stone-400">مجموع نقاط الحصة: {availablePoints}</p>
         </div>
 
         {!numericGroupId && (
@@ -433,18 +389,14 @@ export default function Evaluations({ onDone, initialGroupId }) {
               <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-stone-700">
                 <input
                   type="checkbox"
-                  checked={
-                    selectedIds.size === students.length && students.length > 0
-                  }
+                  checked={selectedIds.size === students.length && students.length > 0}
                   onChange={() => toggleSelectAll(students.map((s) => s.id))}
                   className="h-4 w-4 rounded border-stone-200 text-amber-800 focus:ring-amber-200"
                 />
                 تحديد الكل
               </label>
               {selectedIds.size > 0 && (
-                <span className="text-xs text-stone-400">
-                  {selectedIds.size} طالب محدَّد
-                </span>
+                <span className="text-xs text-stone-400">{selectedIds.size} طالب محدَّد</span>
               )}
             </div>
 
@@ -477,54 +429,23 @@ export default function Evaluations({ onDone, initialGroupId }) {
                 إجراء جماعي لـ {selectedIds.size}:
               </span>
 
-              <BulkButton
-                label="حاضر"
-                onClick={() => bulkSetAttendance('Present')}
-              />
-              <BulkButton
-                label="غائب"
-                onClick={() => bulkSetAttendance('Absent')}
-              />
-              <BulkButton
-                label="مستثنى"
-                onClick={() => bulkSetAttendance('Excused')}
-              />
+              <BulkButton label="تعليم حاضر" onClick={() => bulkSetAttendance("Present")} />
+              <BulkButton label="تعليم غائب" onClick={() => bulkSetAttendance("Absent")} />
+              <BulkButton label="تعليم مستثنى" onClick={() => bulkSetAttendance("Excused")} />
 
               {hasHomework && (
                 <>
-                  <BulkButton
-                    label="أنجز الواجب كامل"
-                    onClick={() => bulkSetTask('homework', 5)}
-                  />
-                  <BulkButton
-                    label="لم ينجز الواجب"
-                    onClick={() => bulkSetTask('homework', 0)}
-                  />
+                  <BulkButton label="الكل: واجب كامل" onClick={() => bulkSetTask("homework", 5)} />
+                  <BulkButton label="الكل: لم ينجز الواجب" onClick={() => bulkSetTask("homework", 0)} />
                 </>
               )}
               {hasRecitation && (
                 <>
-                  <BulkButton
-                    label="تسميع كامل"
-                    onClick={() => bulkSetTask('recitation', 5)}
-                  />
-                  <BulkButton
-                    label="لم يسمع"
-                    onClick={() => bulkSetTask('recitation', 5)}
-                  />
+                  <BulkButton label="الكل: تسميع كامل" onClick={() => bulkSetTask("recitation", 5)} />
                 </>
               )}
               {hasParticipation && (
-                <>
-                  <BulkButton
-                    label="تفاعل ممتاز"
-                    onClick={() => bulkSetTask('participation', 5)}
-                  />
-                  <BulkButton
-                    label="تفاعل سيئ"
-                    onClick={() => bulkSetTask('participation', 5)}
-                  />
-                </>
+                <BulkButton label="الكل: تفاعل ممتاز" onClick={() => bulkSetTask("participation", 5)} />
               )}
 
               <button
@@ -577,10 +498,10 @@ function StudentEvalRow({
 
   const scoreColor =
     scoreOutOf10 >= 8
-      ? 'text-emerald-600 bg-emerald-50'
+      ? "text-emerald-600 bg-emerald-50"
       : scoreOutOf10 >= 5
-        ? 'text-amber-600 bg-amber-50'
-        : 'text-rose-600 bg-rose-50';
+      ? "text-amber-600 bg-amber-50"
+      : "text-rose-600 bg-rose-50";
 
   const whatsappHref = student.parentPhone
     ? buildWhatsAppLink(student, group, {
@@ -596,21 +517,13 @@ function StudentEvalRow({
       })
     : null;
 
-  const visibleFieldsCount =
-    1 +
-    (hasParticipation ? 1 : 0) +
-    (hasHomework ? 1 : 0) +
-    (hasRecitation ? 1 : 0) +
-    (hasExam ? 1 : 0);
-  const gridColsClass =
-    visibleFieldsCount >= 4
-      ? 'sm:grid-cols-3 lg:grid-cols-5'
-      : 'sm:grid-cols-3';
+  const visibleFieldsCount = 1 + (hasParticipation ? 1 : 0) + (hasHomework ? 1 : 0) + (hasRecitation ? 1 : 0) + (hasExam ? 1 : 0);
+  const gridColsClass = visibleFieldsCount >= 4 ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-3";
 
   return (
     <div
       className={`rounded-2xl border p-4 transition ${
-        selected ? 'border-amber-800 bg-amber-50' : 'border-stone-200 bg-white'
+        selected ? "border-amber-800 bg-amber-50" : "border-stone-200 bg-white"
       }`}
     >
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -621,13 +534,9 @@ function StudentEvalRow({
             onChange={onToggleSelect}
             className="h-4 w-4 shrink-0 rounded border-stone-200 text-amber-800 focus:ring-amber-200"
           />
-          <span className="truncate font-semibold text-stone-900">
-            {student.name}
-          </span>
+          <span className="truncate font-semibold text-stone-900">{student.name}</span>
         </label>
-        <span
-          className={`shrink-0 rounded-full px-3 py-1 text-sm font-bold ${scoreColor}`}
-        >
+        <span className={`shrink-0 rounded-full px-3 py-1 text-sm font-bold ${scoreColor}`}>
           {scoreOutOf10} / 10
         </span>
       </div>
@@ -648,31 +557,19 @@ function StudentEvalRow({
                 value={participation.stars}
                 disabled={participation.isExcused}
                 onChange={(stars) =>
-                  upsertTask(
-                    student.id,
-                    student.groupId,
-                    date,
-                    'participation',
-                    {
-                      stars,
-                      isExcused: false,
-                    },
-                  )
+                  upsertTask(student.id, student.groupId, date, "participation", {
+                    stars,
+                    isExcused: false,
+                  })
                 }
               />
               <ExcusedCheckbox
                 checked={participation.isExcused}
                 onChange={(checked) =>
-                  upsertTask(
-                    student.id,
-                    student.groupId,
-                    date,
-                    'participation',
-                    {
-                      stars: participation.stars,
-                      isExcused: checked,
-                    },
-                  )
+                  upsertTask(student.id, student.groupId, date, "participation", {
+                    stars: participation.stars,
+                    isExcused: checked,
+                  })
                 }
               />
             </div>
@@ -686,7 +583,7 @@ function StudentEvalRow({
                 value={homework.stars}
                 disabled={homework.isExcused}
                 onChange={(stars) =>
-                  upsertTask(student.id, student.groupId, date, 'homework', {
+                  upsertTask(student.id, student.groupId, date, "homework", {
                     stars,
                     isExcused: false,
                   })
@@ -695,7 +592,7 @@ function StudentEvalRow({
               <ExcusedCheckbox
                 checked={homework.isExcused}
                 onChange={(checked) =>
-                  upsertTask(student.id, student.groupId, date, 'homework', {
+                  upsertTask(student.id, student.groupId, date, "homework", {
                     stars: homework.stars,
                     isExcused: checked,
                   })
@@ -712,7 +609,7 @@ function StudentEvalRow({
                 value={recitation.stars}
                 disabled={recitation.isExcused}
                 onChange={(stars) =>
-                  upsertTask(student.id, student.groupId, date, 'recitation', {
+                  upsertTask(student.id, student.groupId, date, "recitation", {
                     stars,
                     isExcused: false,
                   })
@@ -721,7 +618,7 @@ function StudentEvalRow({
               <ExcusedCheckbox
                 checked={recitation.isExcused}
                 onChange={(checked) =>
-                  upsertTask(student.id, student.groupId, date, 'recitation', {
+                  upsertTask(student.id, student.groupId, date, "recitation", {
                     stars: recitation.stars,
                     isExcused: checked,
                   })
@@ -732,7 +629,7 @@ function StudentEvalRow({
         )}
 
         {hasExam && (
-          <FieldGroup label={`الامتحان (من ${examTotal || '؟'})`}>
+          <FieldGroup label={`الامتحان (من ${examTotal || "؟"})`}>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -741,20 +638,18 @@ function StudentEvalRow({
                 disabled={exam.isExcused}
                 value={exam.score}
                 onChange={(e) =>
-                  upsertTask(student.id, student.groupId, date, 'exam', {
-                    score: e.target.value === '' ? '' : Number(e.target.value),
+                  upsertTask(student.id, student.groupId, date, "exam", {
+                    score: e.target.value === "" ? "" : Number(e.target.value),
                     isExcused: false,
                   })
                 }
-                className={
-                  selectClass + ' disabled:bg-stone-50 disabled:text-stone-400'
-                }
+                className={selectClass + " disabled:bg-stone-50 disabled:text-stone-400"}
                 placeholder="الدرجة"
               />
               <ExcusedCheckbox
                 checked={exam.isExcused}
                 onChange={(checked) =>
-                  upsertTask(student.id, student.groupId, date, 'exam', {
+                  upsertTask(student.id, student.groupId, date, "exam", {
                     score: exam.score,
                     isExcused: checked,
                   })
@@ -783,14 +678,12 @@ function StudentEvalRow({
 }
 
 const selectClass =
-  'w-full rounded-lg border border-stone-200 px-2.5 py-2 text-sm outline-none focus:border-amber-800 focus:ring-2 focus:ring-amber-100';
+  "w-full rounded-lg border border-stone-200 px-2.5 py-2 text-sm outline-none focus:border-amber-800 focus:ring-2 focus:ring-amber-100";
 
 function FieldGroup({ label, children }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-stone-500">
-        {label}
-      </label>
+      <label className="mb-1 block text-xs font-medium text-stone-500">{label}</label>
       {children}
     </div>
   );
@@ -799,21 +692,9 @@ function FieldGroup({ label, children }) {
 // أزرار الحضور المتجاورة (بدل القائمة المنسدلة) — أوضح وأسرع بالضغط بإصبع واحد
 function AttendanceSegmented({ value, onChange }) {
   const options = [
-    {
-      key: 'Present',
-      label: 'حاضر',
-      activeClass: 'bg-emerald-600 text-white border-emerald-600',
-    },
-    {
-      key: 'Absent',
-      label: 'غائب',
-      activeClass: 'bg-rose-600 text-white border-rose-600',
-    },
-    {
-      key: 'Excused',
-      label: 'مستثنى',
-      activeClass: 'bg-amber-600 text-white border-amber-600',
-    },
+    { key: "Present", label: "حاضر", activeClass: "bg-emerald-600 text-white border-emerald-600" },
+    { key: "Absent", label: "غائب", activeClass: "bg-rose-600 text-white border-rose-600" },
+    { key: "Excused", label: "مستثنى", activeClass: "bg-amber-600 text-white border-amber-600" },
   ];
   return (
     <div className="flex gap-1.5">
@@ -823,9 +704,7 @@ function AttendanceSegmented({ value, onChange }) {
           type="button"
           onClick={() => onChange(opt.key)}
           className={`flex-1 rounded-lg border px-2 py-2 text-xs font-semibold transition ${
-            value === opt.key
-              ? opt.activeClass
-              : 'border-stone-200 text-stone-500 hover:bg-stone-50'
+            value === opt.key ? opt.activeClass : "border-stone-200 text-stone-500 hover:bg-stone-50"
           }`}
         >
           {opt.label}
@@ -867,12 +746,12 @@ function ToggleSwitch({ checked, onChange, disabled }) {
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-40 ${
-        checked ? 'bg-amber-800' : 'bg-stone-300'
+        checked ? "bg-amber-800" : "bg-stone-300"
       }`}
     >
       <span
         className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
-          checked ? 'right-0.5' : 'right-[22px]'
+          checked ? "right-0.5" : "right-[22px]"
         }`}
       />
     </button>
@@ -905,56 +784,42 @@ function WhatsAppIcon() {
 function buildWhatsAppLink(
   student,
   group,
-  {
-    attendance,
-    participation,
-    homework,
-    recitation,
-    exam,
-    hasExam,
-    examTotal,
-    subject,
-    scoreOutOf10,
-  },
+  { attendance, participation, homework, recitation, exam, hasExam, examTotal, subject, scoreOutOf10 }
 ) {
-  const template = getDefaultTemplate('evaluation');
+  const template = getDefaultTemplate("evaluation");
   if (!template) return null;
 
-  const attendanceLabel = ATTENDANCE_LABEL[attendance] || 'غائب';
+  const attendanceLabel = ATTENDANCE_LABEL[attendance] || "غائب";
 
-  const homeworkStarsLabel = homework.isExcused
-    ? 'مستثنى'
-    : homeworkLabelFromStars(homework.stars);
-  const recitationStarsLabel = recitation.isExcused
-    ? 'مستثنى'
-    : recitationLabelFromStars(recitation.stars);
+  const homeworkStarsLabel = homework.isExcused ? "مستثنى" : homeworkLabelFromStars(homework.stars);
+  const recitationStarsLabel = recitation.isExcused ? "مستثنى" : recitationLabelFromStars(recitation.stars);
   const participationStarsLabel = participation.isExcused
-    ? 'مستثنى'
+    ? "مستثنى"
     : participationLabelFromStars(participation.stars);
 
   const examScoreLabel = !hasExam
-    ? 'لا يوجد امتحان'
+    ? "لا يوجد امتحان"
     : exam.isExcused
-      ? 'مستثنى'
-      : exam.score !== '' && exam.score !== null
-        ? `${exam.score}/${examTotal || '؟'}`
-        : 'لم يُسجَّل';
+    ? "مستثنى"
+    : exam.score !== "" && exam.score !== null
+    ? `${exam.score}/${examTotal || "؟"}`
+    : "لم يُسجَّل";
 
   const message = fillTemplate(template.body, {
-    '[اسم_الطالب]': student.name,
-    '[المجموعة]': group?.groupName || '',
-    '[المادة]': subject || 'غير محدد',
-    '[حالة_الحضور]': attendanceLabel,
-    '[نجوم_الواجب]': homeworkStarsLabel,
-    '[نجوم_التسميع]': recitationStarsLabel,
-    '[نجوم_التفاعل]': participationStarsLabel,
-    '[درجة_الامتحان]': examScoreLabel,
-    '[الدرجة_النهائية_للامتحان]': hasExam ? String(examTotal || '') : 'لا يوجد',
-    '[التقييم_العام]': `${scoreOutOf10}/10`,
-    '[اسم_الشهر]': '',
-    '[المبلغ]': '',
-    '[الفترة]': '',
-    '[التقييم_التراكمي]': '',
+    "[اسم_الطالب]": student.name,
+    "[المجموعة]": group?.groupName || "",
+    "[المادة]": subject || "غير محدد",
+    "[حالة_الحضور]": attendanceLabel,
+    "[نجوم_الواجب]": homeworkStarsLabel,
+    "[نجوم_التسميع]": recitationStarsLabel,
+    "[نجوم_التفاعل]": participationStarsLabel,
+    "[درجة_الامتحان]": examScoreLabel,
+    "[الدرجة_النهائية_للامتحان]": hasExam ? String(examTotal || "") : "لا يوجد",
+    "[التقييم_العام]": `${scoreOutOf10}/10`,
+    "[اسم_الشهر]": "",
+    "[المبلغ]": "",
+    "[الفترة]": "",
+    "[التقييم_التراكمي]": "",
   });
 
   return buildWaLink(student.parentPhone, message);
@@ -966,9 +831,7 @@ function buildWhatsAppLink(
 function StarRating({ value, onChange, disabled }) {
   const stars = [1, 2, 3, 4, 5];
   return (
-    <div
-      className={`flex items-center gap-0.5 ${disabled ? 'opacity-40' : ''}`}
-    >
+    <div className={`flex items-center gap-0.5 ${disabled ? "opacity-40" : ""}`}>
       {stars.map((n) => {
         const filled = n <= Math.round(value || 0);
         return (
@@ -994,8 +857,8 @@ function StarIcon({ filled }) {
       width="20"
       height="20"
       viewBox="0 0 24 24"
-      fill={filled ? '#f59e0b' : 'none'}
-      stroke={filled ? '#f59e0b' : '#cbd5e1'}
+      fill={filled ? "#f59e0b" : "none"}
+      stroke={filled ? "#f59e0b" : "#cbd5e1"}
       strokeWidth="1.5"
     >
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />

@@ -153,17 +153,17 @@ export default function AttendanceScanner({ onDone }) {
   }, []);
 
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-50 font-sans text-slate-800">
+    <div dir="rtl" className="min-h-screen bg-stone-50 font-sans text-stone-900">
       <div className="mx-auto max-w-md px-4 py-6 sm:px-6">
         <header className="mb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">تسجيل الحضور</h1>
-            <p className="text-sm text-slate-500">وجّه الكاميرا نحو كارنيه الطالب</p>
+            <h1 className="text-xl font-bold text-stone-900">تسجيل الحضور</h1>
+            <p className="text-sm text-stone-500">وجّه الكاميرا نحو كارنيه الطالب</p>
           </div>
           {onDone && (
             <button
               onClick={onDone}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              className="rounded-lg border border-stone-200 px-3 py-1.5 text-sm font-medium text-stone-500 hover:bg-stone-50"
             >
               إنهاء
             </button>
@@ -177,7 +177,7 @@ export default function AttendanceScanner({ onDone }) {
         </div>
 
         {/* منطقة الكاميرا */}
-        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-black">
+        <div className="relative overflow-hidden rounded-2xl border border-stone-200 bg-black">
           <div id={READER_ELEMENT_ID} className="w-full" />
 
           {cameraState === "initializing" && (
@@ -213,7 +213,7 @@ export default function AttendanceScanner({ onDone }) {
           )}
         </div>
 
-        <p className="mt-4 text-center text-xs text-slate-400">
+        <p className="mt-4 text-center text-xs text-stone-400">
           يتوقف المسح تلقائياً لثانية واحدة بعد كل عملية ناجحة لتفادي القراءة المزدوجة.
         </p>
       </div>
@@ -264,7 +264,7 @@ function PermissionMessage({ title, description, steps, detail }) {
       <ol className="mt-1 w-full max-w-xs space-y-1.5 text-right text-xs text-slate-300">
         {steps.map((step, i) => (
           <li key={i} className="flex items-start gap-2">
-            <span className="mt-0.5 shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px]">
+            <span className="mt-0.5 shrink-0 rounded-full bg-white px-1.5 py-0.5 text-[10px]">
               {i + 1}
             </span>
             <span>{step}</span>
@@ -272,7 +272,7 @@ function PermissionMessage({ title, description, steps, detail }) {
         ))}
       </ol>
       {detail && (
-        <p className="mt-2 max-w-xs break-words text-[10px] text-slate-500">{detail}</p>
+        <p className="mt-2 max-w-xs break-words text-[10px] text-stone-500">{detail}</p>
       )}
     </div>
   );

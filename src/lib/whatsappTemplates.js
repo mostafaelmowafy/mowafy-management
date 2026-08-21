@@ -18,6 +18,7 @@ export const TEMPLATE_VARIABLES = [
   "[المادة]",
   "[حالة_الحضور]",
   "[نجوم_الواجب]",
+  "[نجوم_التسميع]",
   "[نجوم_التفاعل]",
   "[درجة_الامتحان]",
   "[الدرجة_النهائية_للامتحان]",
@@ -53,6 +54,7 @@ function defaultTemplates() {
         "- المادة: [المادة]\n" +
         "- الحضور: [حالة_الحضور]\n" +
         "- الواجب: [نجوم_الواجب]\n" +
+        "- التسميع: [نجوم_التسميع]\n" +
         "- التفاعل: [نجوم_التفاعل]\n" +
         "🎯 التقييم العام للحصة: [التقييم_العام]/10",
       isDefault: true,
@@ -92,6 +94,25 @@ export function loadTemplates() {
     const missingDefaults = defaultTemplates().filter((t) => !existingCategories.has(t.category));
     if (missingDefaults.length > 0) {
       templates = [...templates, ...missingDefaults];
+    }
+
+    // ترقية مستهدَفة إضافية: إضافة سطر "التسميع" (ميزة جديدة) للقالب الافتراضي
+    // الأصلي لفئة "متابعة التقييم" تحديداً (id === "default-evaluation") فقط —
+    // أي قالب اتعمله المدرس بنفسه أو غيّر اسمه له id مختلف، فمش بنلمسه إطلاقاً
+    let migratedBody = false;
+    templates = templates.map((t) => {
+      if (t.id === "default-evaluation" && !t.body.includes("[نجوم_التسميع]")) {
+        migratedBody = true;
+        const recitationLine = "- التسميع: [نجوم_التسميع]";
+        const newBody = t.body.includes("- الواجب:")
+          ? t.body.replace(/(- الواجب:[^\n]*)/, `$1\n${recitationLine}`)
+          : `${t.body}\n${recitationLine}`;
+        return { ...t, body: newBody };
+      }
+      return t;
+    });
+
+    if (missingDefaults.length > 0 || migratedBody) {
       saveTemplates(templates);
     }
 

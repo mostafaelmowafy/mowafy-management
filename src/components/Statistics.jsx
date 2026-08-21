@@ -430,6 +430,7 @@ function StudentReportDialog({ student, groupName, daily, onClose }) {
   const [fromDate, setFromDate] = useState(monthAgo);
   const [toDate, setToDate] = useState(today);
   const [subjectFilter, setSubjectFilter] = useState("all"); // "all" أو اسم مادة محدَّد
+  const [showPrintView, setShowPrintView] = useState(false);
 
   const filtered = useMemo(() => {
     return daily
@@ -596,6 +597,13 @@ function StudentReportDialog({ student, groupName, daily, onClose }) {
         </div>
 
         <div className="mt-4 flex gap-3">
+          <button
+            onClick={() => setShowPrintView(true)}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-amber-800 px-4 py-2.5 text-sm font-semibold text-amber-800 hover:bg-amber-50"
+          >
+            <PdfIcon />
+            تصدير PDF
+          </button>
           {sendLink && (
             <a
               href={sendLink}
@@ -607,18 +615,211 @@ function StudentReportDialog({ student, groupName, daily, onClose }) {
               إرسال هذا التقرير لولي الأمر
             </a>
           )}
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-lg border border-stone-200 px-4 py-2.5 text-sm font-medium text-stone-500 hover:bg-stone-50"
-          >
-            إغلاق
-          </button>
         </div>
+        <button
+          onClick={onClose}
+          className="mt-2 w-full rounded-lg border border-stone-200 px-4 py-2.5 text-sm font-medium text-stone-500 hover:bg-stone-50"
+        >
+          إغلاق
+        </button>
+      </div>
+
+      {showPrintView && (
+        <PrintableReportView
+          student={student}
+          groupName={groupName}
+          fromDate={fromDate}
+          toDate={toDate}
+          subjectFilter={subjectFilter}
+          filtered={filtered}
+          periodAverage={periodAverage}
+          presentCount={presentCount}
+          absentCount={absentCount}
+          excusedCount={excusedCount}
+          homeworkAvg={homeworkAvg}
+          recitationAvg={recitationAvg}
+          participationAvg={participationAvg}
+          examEntries={examEntries}
+          onClose={() => setShowPrintView(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ========================================================================
+// نافذة "تصدير PDF" — تعرض تقريراً منسَّقاً للطباعة، وتفتح مربّع طباعة المتصفح
+// مباشرة. لماذا هذا الأسلوب بدل مكتبة PDF جافاسكريبت (jsPDF/pdf-lib)؟ لأن هذه
+// المكتبات لا تدعم تشكيل الحروف العربية (الحرف له شكل مختلف حسب موضعه في الكلمة)
+// بشكل صحيح من تلقاء نفسها، بينما محرك عرض المتصفح نفسه يفعل ذلك تلقائياً وبشكل
+// مثالي. المستخدم يختار "حفظ كـ PDF" كوجهة طباعة من نافذة الطباعة القياسية —
+// مدعومة في كل المتصفحات الحديثة على الموبايل وسطح المكتب.
+// ========================================================================
+function PrintableReportView({
+  student,
+  groupName,
+  fromDate,
+  toDate,
+  subjectFilter,
+  filtered,
+  periodAverage,
+  presentCount,
+  absentCount,
+  excusedCount,
+  homeworkAvg,
+  recitationAvg,
+  participationAvg,
+  examEntries,
+  onClose,
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] overflow-y-auto bg-white">
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #printable-report, #printable-report * { visibility: visible; }
+          #printable-report {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            margin: 20px;
+          }
+        }
+      `}</style>
+
+      {/* شريط علوي (يختفي عند الطباعة تلقائياً لأنه خارج printable-report) */}
+      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-stone-200 bg-white px-4 py-3">
+        <button
+          onClick={() => window.print()}
+          className="rounded-lg bg-amber-800 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-900"
+        >
+          طباعة / حفظ كـ PDF
+        </button>
+        <button
+          onClick={onClose}
+          className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-500 hover:bg-stone-50"
+        >
+          رجوع
+        </button>
+      </div>
+
+      <div id="printable-report" dir="rtl" className="mx-auto max-w-2xl px-6 py-8 font-sans text-stone-900">
+        <p className="mb-1 text-sm font-semibold text-amber-800">Mowafy</p>
+        <h1 className="mb-1 text-2xl font-bold">تقرير أداء الطالب</h1>
+        <p className="mb-6 text-sm text-stone-500">
+          {student.name} — {groupName || "—"}
+          {subjectFilter !== "all" ? ` — مادة: ${subjectFilter}` : ""}
+          {" — "}من {formatDateArabic(fromDate)} إلى {formatDateArabic(toDate)}
+        </p>
+
+        <div className="mb-6 grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-stone-200 p-4 text-center">
+            <p className="text-xs text-stone-500">التقييم التراكمي</p>
+            <p className="mt-1 text-2xl font-bold text-amber-800">
+              {periodAverage === null ? "—" : `${periodAverage}/10`}
+            </p>
+          </div>
+          <div className="rounded-xl border border-stone-200 p-4">
+            <div className="grid grid-cols-3 gap-2 text-center text-sm">
+              <div>
+                <p className="font-bold text-emerald-600">{presentCount}</p>
+                <p className="text-[11px] text-stone-500">حضر</p>
+              </div>
+              <div>
+                <p className="font-bold text-rose-600">{absentCount}</p>
+                <p className="text-[11px] text-stone-500">غاب</p>
+              </div>
+              <div>
+                <p className="font-bold text-amber-700">{excusedCount}</p>
+                <p className="text-[11px] text-stone-500">مستثنى</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {(homeworkAvg !== null || recitationAvg !== null || participationAvg !== null) && (
+          <div className="mb-6">
+            <h2 className="mb-2 text-sm font-bold text-stone-900">متوسط البنود</h2>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="rounded-lg bg-stone-50 py-2">
+                <p className="font-bold text-stone-900">{homeworkAvg !== null ? `${homeworkAvg}/5` : "—"}</p>
+                <p className="text-[11px] text-stone-500">الواجب</p>
+              </div>
+              <div className="rounded-lg bg-stone-50 py-2">
+                <p className="font-bold text-stone-900">{recitationAvg !== null ? `${recitationAvg}/5` : "—"}</p>
+                <p className="text-[11px] text-stone-500">التسميع</p>
+              </div>
+              <div className="rounded-lg bg-stone-50 py-2">
+                <p className="font-bold text-stone-900">{participationAvg !== null ? `${participationAvg}/5` : "—"}</p>
+                <p className="text-[11px] text-stone-500">التفاعل</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {examEntries.length > 0 && (
+          <div className="mb-6">
+            <h2 className="mb-2 text-sm font-bold text-stone-900">الامتحانات ({examEntries.length})</h2>
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-stone-200 text-right text-stone-500">
+                  <th className="py-1.5 font-medium">التاريخ</th>
+                  <th className="py-1.5 font-medium">الدرجة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {examEntries.map((d) => (
+                  <tr key={d.date} className="border-b border-stone-100">
+                    <td className="py-1.5">{formatDateArabic(d.date)}</td>
+                    <td className="py-1.5 font-semibold">
+                      {d.exam.isExcused ? "مستثنى" : `${d.exam.score}/${d.exam.total || "؟"}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div>
+          <h2 className="mb-2 text-sm font-bold text-stone-900">التفصيل اليومي ({filtered.length} حصة)</h2>
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-stone-200 text-right text-stone-500">
+                <th className="py-1.5 font-medium">التاريخ</th>
+                <th className="py-1.5 font-medium">الحضور</th>
+                <th className="py-1.5 font-medium">المادة</th>
+                <th className="py-1.5 font-medium">التقييم</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((d) => (
+                <tr key={d.date} className="border-b border-stone-100">
+                  <td className="py-1.5">{formatDateArabic(d.date)}</td>
+                  <td className="py-1.5 text-stone-500">{ATTENDANCE_LABEL_AR[d.attendance] || "—"}</td>
+                  <td className="py-1.5 text-stone-500">{d.subject || "—"}</td>
+                  <td className="py-1.5 font-semibold">{d.scoreOutOf10}/10</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="mt-8 text-center text-[10px] text-stone-400">
+          تم إنشاؤه بواسطة تطبيق Mowafy — {formatDateArabic(new Date().toISOString().slice(0, 10))}
+        </p>
       </div>
     </div>
   );
 }
 
+function PdfIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  );
+}
 const ATTENDANCE_LABEL_AR = { Present: "حاضر", Absent: "غائب", Excused: "مستثنى" };
 
 function MiniStat({ label, value, color }) {

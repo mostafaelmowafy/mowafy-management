@@ -59,8 +59,12 @@ function PointsSection() {
     setPoints(next);
   }
 
-  const totalWithoutExam = (points.attendance || 0) + (points.participation || 0) + (points.homework || 0);
-  const totalWithExam = totalWithoutExam + (points.exam || 0);
+  const maxTotal =
+    (points.attendance || 0) +
+    (points.participation || 0) +
+    (points.homework || 0) +
+    (points.recitation || 0) +
+    (points.exam || 0);
 
   return (
     <section className="rounded-2xl border border-stone-200 bg-white p-5">
@@ -68,19 +72,21 @@ function PointsSection() {
       <p className="mb-4 text-xs text-stone-500">
         الوزن النسبي لكل بند في معادلة تقييم الحصة (من 10). التغيير هنا يطبَّق فوراً على كل
         حسابات شاشة "تقييم الحصة" — القيم الافتراضية: حضور {DEFAULT_POINTS.attendance}،
-        تفاعل {DEFAULT_POINTS.participation}، واجب {DEFAULT_POINTS.homework}، امتحان {DEFAULT_POINTS.exam}.
+        تفاعل {DEFAULT_POINTS.participation}، واجب {DEFAULT_POINTS.homework}، تسميع{" "}
+        {DEFAULT_POINTS.recitation}، امتحان {DEFAULT_POINTS.exam}. كل بند (عدا الحضور) يقدر
+        المدرس يفعّله أو يعطّله لحصة بعينها من شاشة التقييم نفسها.
       </p>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <PointField label="الحضور" value={points.attendance} onChange={(v) => update("attendance", v)} />
         <PointField label="التفاعل" value={points.participation} onChange={(v) => update("participation", v)} />
         <PointField label="الواجب" value={points.homework} onChange={(v) => update("homework", v)} />
+        <PointField label="التسميع" value={points.recitation} onChange={(v) => update("recitation", v)} />
         <PointField label="الامتحان" value={points.exam} onChange={(v) => update("exam", v)} />
       </div>
 
       <p className="mt-3 text-xs text-stone-500">
-        مجموع نقاط الحصة بدون امتحان: <strong>{totalWithoutExam}</strong> — بامتحان:{" "}
-        <strong>{totalWithExam}</strong>
+        أقصى مجموع ممكن للحصة (كل البنود مفعّلة): <strong>{maxTotal}</strong>
       </p>
     </section>
   );

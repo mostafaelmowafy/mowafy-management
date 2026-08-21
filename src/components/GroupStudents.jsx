@@ -2,13 +2,13 @@
 // عرض كل طلاب مجموعة معيّنة + تعديل بياناتهم (الاسم، الأرقام، نقلهم لمجموعة أخرى)
 // يُفتح بالضغط على بطاقة المجموعة نفسها في شاشة Groups.jsx
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
 import StudentCard from "./StudentCard";
 
-export default function GroupStudents({ group, onBack }) {
+export default function GroupStudents({ group, onBack, highlightStudentId }) {
   const [editingStudent, setEditingStudent] = useState(null);
   const [confirmingDelete, setConfirmingDelete] = useState(null);
   const [viewingCardOf, setViewingCardOf] = useState(null);
@@ -18,6 +18,12 @@ export default function GroupStudents({ group, onBack }) {
     [group.id],
     []
   );
+
+  useEffect(() => {
+    if (!highlightStudentId || !students || students.length === 0) return;
+    const el = document.getElementById(`student-${highlightStudentId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightStudentId, students]);
 
   const activeGroups = useLiveQuery(
     () => db.groups.where("isArchived").equals(0).toArray(),
@@ -65,7 +71,12 @@ export default function GroupStudents({ group, onBack }) {
           {(students || []).map((s) => (
             <div
               key={s.id}
-              className="flex flex-col gap-2.5 rounded-xl border border-stone-200 bg-white p-3.5 sm:flex-row sm:items-center sm:justify-between"
+              id={`student-${s.id}`}
+              className={`flex flex-col gap-2.5 rounded-xl border p-3.5 sm:flex-row sm:items-center sm:justify-between ${
+                highlightStudentId === s.id
+                  ? "border-amber-800 bg-amber-50"
+                  : "border-stone-200 bg-white"
+              }`}
             >
               <div className="min-w-0">
                 <p className="flex items-center gap-2 text-sm font-semibold text-stone-900">
