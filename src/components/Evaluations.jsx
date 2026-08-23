@@ -13,6 +13,7 @@ import { getDefaultTemplate, fillTemplate, buildWhatsAppLink as buildWaLink } fr
 import { loadSubjects } from "../lib/subjects";
 import { loadPointsSettings } from "../lib/points";
 import { computeSessionScore } from "../lib/scoring";
+import SendQueueDialog from "./SendQueueDialog";
 
 // ----------------------------------------------------------------------
 // دوال حفظ (Upsert) — تكتب في Dexie مباشرة عند أي تغيير من المدرس
@@ -64,7 +65,7 @@ async function upsertSession(groupId, date, patch) {
 }
 
 // نصوص عربية تُستخدم في الواجهة وفي رسالة الواتساب
-const ATTENDANCE_LABEL = { Present: "حاضر", Absent: "غائب", Excused: "مستثنى" };
+const ATTENDANCE_LABEL = { Present: "حاضر", Absent: "غائب", Excused: "حضر متأخر" };
 
 // تحويل عدد نجوم الواجب لوصف نصي في رسالة الواتساب (الواجهة نفسها تعرض النجوم كما هي)
 function homeworkLabelFromStars(stars) {
@@ -118,6 +119,7 @@ export default function Evaluations({ onDone, initialGroupId }) {
 
   // تحديد متعدد للطلاب — لتنفيذ نفس الإجراء (حضور/واجب/تسميع/تفاعل) دفعة واحدة
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [sendQueue, setSendQueue] = useState(null); // مصفوفة [{id,name,link}] أثناء الإرسال المتسلسل الجماعي
   useEffect(() => {
     setSelectedIds(new Set()); // نفضّي التحديد عند تغيير المجموعة أو التاريخ تفادياً لتطبيق إجراء بالخطأ
   }, [numericGroupId, date]);
@@ -199,9 +201,10 @@ export default function Evaluations({ onDone, initialGroupId }) {
 
   const emptyField = { stars: 0, isExcused: false };
   const emptyExam = { score: "", isExcused: false };
+  const emptyNote = { text: "" };
 
   const tasksMap = useMemo(() => {
-    const map = new Map(); // studentId -> { participation, homework, recitation, exam }
+    const map = new Map(); // studentId -> { participation, homework, recitation, exam, note }
     (tasksForDate || []).forEach((t) => {
       if (!map.has(t.studentId)) {
         map.set(t.studentId, {
@@ -209,6 +212,7 @@ export default function Evaluations({ onDone, initialGroupId }) {
           homework: { ...emptyField },
           recitation: { ...emptyField },
           exam: { ...emptyExam },
+          note: { ...emptyNote },
         });
       }
       const entry = map.get(t.studentId);
@@ -216,6 +220,7 @@ export default function Evaluations({ onDone, initialGroupId }) {
       if (t.kind === "homework") entry.homework = { stars: t.stars ?? 0, isExcused: !!t.isExcused };
       if (t.kind === "recitation") entry.recitation = { stars: t.stars ?? 0, isExcused: !!t.isExcused };
       if (t.kind === "exam") entry.exam = { score: t.score ?? "", isExcused: !!t.isExcused };
+      if (t.kind === "note") entry.note = { text: t.text || "" };
     });
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -228,12 +233,50 @@ export default function Evaluations({ onDone, initialGroupId }) {
       homework: { ...emptyField },
       recitation: { ...emptyField },
       exam: { ...emptyExam },
+      note: { ...emptyNote },
     };
     const t = tasksMap.get(studentId) || defaults;
     return { attendance, ...t };
   }
 
   const selectedGroup = (activeGroups || []).find((g) => g.id === numericGroupId);
+
+  function handleBulkSendReports() {
+    const items = [];
+    Array.from(selectedIds).forEach((id) => {
+      const student = (students || []).find((s) => s.id === id);
+      if (!student || !student.parentPhone) return;
+      const evalData = getStudentEval(id);
+      const { scoreOutOf10 } = computeSessionScore({
+        points,
+        hasExam,
+        examTotal,
+        hasParticipation,
+        hasHomework,
+        hasRecitation,
+        attendance: evalData.attendance,
+        participation: evalData.participation,
+        homework: evalData.homework,
+        recitation: evalData.recitation,
+        exam: evalData.exam,
+      });
+      const link = buildWhatsAppLink(student, selectedGroup, {
+        attendance: evalData.attendance,
+        participation: evalData.participation,
+        homework: evalData.homework,
+        recitation: evalData.recitation,
+        exam: evalData.exam,
+        hasExam,
+        examTotal,
+        subject,
+        note: evalData.note,
+        scoreOutOf10,
+      });
+      if (link) items.push({ id, name: student.name, link });
+    });
+    if (items.length > 0) setSendQueue(items);
+  }
+
 
   const availablePoints =
     points.attendance +
@@ -431,7 +474,7 @@ export default function Evaluations({ onDone, initialGroupId }) {
 
               <BulkButton label="تعليم حاضر" onClick={() => bulkSetAttendance("Present")} />
               <BulkButton label="تعليم غائب" onClick={() => bulkSetAttendance("Absent")} />
-              <BulkButton label="تعليم مستثنى" onClick={() => bulkSetAttendance("Excused")} />
+              <BulkButton label="تعليم حضر متأخر" onClick={() => bulkSetAttendance("Excused")} />
 
               {hasHomework && (
                 <>
@@ -448,6 +491,8 @@ export default function Evaluations({ onDone, initialGroupId }) {
                 <BulkButton label="الكل: تفاعل ممتاز" onClick={() => bulkSetTask("participation", 5)} />
               )}
 
+              <BulkButton label="📩 إرسال تقارير للمحددين" onClick={handleBulkSendReports} />
+
               <button
                 onClick={() => setSelectedIds(new Set())}
                 className="mr-auto rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
@@ -457,6 +502,8 @@ export default function Evaluations({ onDone, initialGroupId }) {
             </div>
           </div>
         )}
+
+        {sendQueue && <SendQueueDialog items={sendQueue} onClose={() => setSendQueue(null)} />}
       </div>
     </div>
   );
@@ -480,7 +527,7 @@ function StudentEvalRow({
   selected,
   onToggleSelect,
 }) {
-  const { attendance, participation, homework, recitation, exam } = evalData;
+  const { attendance, participation, homework, recitation, exam, note } = evalData;
 
   const { scoreOutOf10 } = computeSessionScore({
     points,
@@ -513,6 +560,7 @@ function StudentEvalRow({
         hasExam,
         examTotal,
         subject,
+        note,
         scoreOutOf10,
       })
     : null;
@@ -660,6 +708,20 @@ function StudentEvalRow({
         )}
       </div>
 
+      {/* ملاحظة حرة عن الطالب لهذه الحصة — اختيارية، ولو فاضية بتتجاهل تماماً من رسالة الواتساب */}
+      <div className="mt-3">
+        <label className="mb-1 block text-xs font-medium text-stone-500">ملاحظة (اختياري)</label>
+        <input
+          type="text"
+          value={note.text}
+          onChange={(e) =>
+            upsertTask(student.id, student.groupId, date, "note", { text: e.target.value })
+          }
+          placeholder="مثلاً: نسي الكتاب المدرسي..."
+          className={selectClass}
+        />
+      </div>
+
       {whatsappHref && (
         <div className="mt-3 flex justify-end">
           <a
@@ -694,7 +756,7 @@ function AttendanceSegmented({ value, onChange }) {
   const options = [
     { key: "Present", label: "حاضر", activeClass: "bg-emerald-600 text-white border-emerald-600" },
     { key: "Absent", label: "غائب", activeClass: "bg-rose-600 text-white border-rose-600" },
-    { key: "Excused", label: "مستثنى", activeClass: "bg-amber-600 text-white border-amber-600" },
+    { key: "Excused", label: "حضر متأخر", activeClass: "bg-amber-600 text-white border-amber-600" },
   ];
   return (
     <div className="flex gap-1.5">
@@ -784,7 +846,8 @@ function WhatsAppIcon() {
 function buildWhatsAppLink(
   student,
   group,
-  { attendance, participation, homework, recitation, exam, hasExam, examTotal, subject, scoreOutOf10 }
+  { attendance, participation, homework, recitation, exam, hasExam, examTotal, subject, note, scoreOutOf10 },
+  phone = student.parentPhone
 ) {
   const template = getDefaultTemplate("evaluation");
   if (!template) return null;
@@ -805,7 +868,7 @@ function buildWhatsAppLink(
     ? `${exam.score}/${examTotal || "؟"}`
     : "لم يُسجَّل";
 
-  const message = fillTemplate(template.body, {
+  let message = fillTemplate(template.body, {
     "[اسم_الطالب]": student.name,
     "[المجموعة]": group?.groupName || "",
     "[المادة]": subject || "غير محدد",
@@ -822,7 +885,14 @@ function buildWhatsAppLink(
     "[التقييم_التراكمي]": "",
   });
 
-  return buildWaLink(student.parentPhone, message);
+  // الملاحظة تُضاف فقط لو مكتوبة فعلاً — لو فاضية، تُتجاهَل تماماً من الرسالة
+  // (لهذا مش جزء من نظام متغيرات القالب العادي؛ إضافتها كسطر ثابت في القالب كانت
+  // هتسيب سطر فاضٍ دايماً لما ما فيش ملاحظة)
+  if (note?.text?.trim()) {
+    message += `\n📝 ملاحظة: ${note.text.trim()}`;
+  }
+
+  return buildWaLink(phone, message);
 }
 
 // ========================================================================

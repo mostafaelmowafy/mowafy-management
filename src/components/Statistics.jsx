@@ -5,30 +5,17 @@
 // كل حساب يمر عبر src/lib/scoring.js (نفس معادلة شاشة "تقييم الحصة" بالضبط)
 // حتى لا يظهر رقم مختلف عن الدرجة الحقيقية لأي حصة بعينها.
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db, currentMonthStr } from '../db/db';
-import { getStudentDailyScores, averageScore } from '../lib/scoring';
-import {
-  getDefaultTemplate,
-  fillTemplate,
-  buildWhatsAppLink as buildWaLink,
-} from '../lib/whatsappTemplates';
-import { loadSubjects } from '../lib/subjects';
+import React, { useEffect, useMemo, useState } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db, currentMonthStr } from "../db/db";
+import { getStudentDailyScores, averageScore } from "../lib/scoring";
+import { getDefaultTemplate, fillTemplate, buildWhatsAppLink as buildWaLink } from "../lib/whatsappTemplates";
+import { loadSubjects } from "../lib/subjects";
+import SendQueueDialog from "./SendQueueDialog";
 
 const ARABIC_MONTHS = [
-  'يناير',
-  'فبراير',
-  'مارس',
-  'أبريل',
-  'مايو',
-  'يونيو',
-  'يوليو',
-  'أغسطس',
-  'سبتمبر',
-  'أكتوبر',
-  'نوفمبر',
-  'ديسمبر',
+  "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
 ];
 
 function buildMonthOptions() {
@@ -36,34 +23,31 @@ function buildMonthOptions() {
   const options = [];
   for (let offset = -6; offset <= 6; offset++) {
     const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    options.push({
-      value,
-      label: `${ARABIC_MONTHS[d.getMonth()]} ${d.getFullYear()}`,
-    });
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    options.push({ value, label: `${ARABIC_MONTHS[d.getMonth()]} ${d.getFullYear()}` });
   }
   return options;
 }
 
 function formatDateArabic(dateStr) {
-  const [year, month, day] = dateStr.split('-').map(Number);
+  const [year, month, day] = dateStr.split("-").map(Number);
   return `${day} ${ARABIC_MONTHS[month - 1]} ${year}`;
 }
 
 export default function Statistics({ onDone }) {
   const monthOptions = useMemo(buildMonthOptions, []);
-  const [groupId, setGroupId] = useState('');
+  const [groupId, setGroupId] = useState("");
   const [month, setMonth] = useState(currentMonthStr());
   const [expandedStudentId, setExpandedStudentId] = useState(null);
   const [rows, setRows] = useState(null); // null = جارِ التحميل
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [sendQueue, setSendQueue] = useState(null); // { items: [...], index: 0 } أثناء الإرسال المتسلسل
+  const [sendQueue, setSendQueue] = useState(null); // مصفوفة [{id,name,link}] أثناء الإرسال المتسلسل
 
   const activeGroups = useLiveQuery(
-    () => db.groups.where('isArchived').equals(0).toArray(),
+    () => db.groups.where("isArchived").equals(0).toArray(),
     [],
-    [],
+    []
   );
 
   useEffect(() => {
@@ -78,13 +62,13 @@ export default function Statistics({ onDone }) {
     () =>
       numericGroupId
         ? db.students
-            .where('groupId')
+            .where("groupId")
             .equals(numericGroupId)
             .and((s) => !s.isArchived)
             .toArray()
         : Promise.resolve([]),
     [numericGroupId],
-    [],
+    []
   );
 
   // حساب الإحصائيات لكل طلاب المجموعة — يتم في useEffect لأن الحساب غير متزامن
@@ -99,17 +83,12 @@ export default function Statistics({ onDone }) {
       setLoading(true);
       const computed = await Promise.all(
         students.map(async (student) => {
-          const rawDaily = await getStudentDailyScores(
-            student.id,
-            numericGroupId,
-          );
+          const rawDaily = await getStudentDailyScores(student.id, numericGroupId);
           const excludedMonths = student.excludedMonths || [];
           // نستبعد أي يوم يقع في شهر مُستثنى صراحةً من إعدادات الطالب — قبل أي حساب
           const daily =
             excludedMonths.length > 0
-              ? rawDaily.filter(
-                  (d) => !excludedMonths.includes(d.date.slice(0, 7)),
-                )
+              ? rawDaily.filter((d) => !excludedMonths.includes(d.date.slice(0, 7)))
               : rawDaily;
           return {
             student,
@@ -118,7 +97,7 @@ export default function Statistics({ onDone }) {
             overallAverage: averageScore(daily),
             monthlyAverage: averageScore(daily, month),
           };
-        }),
+        })
       );
       if (!cancelled) {
         setRows(computed);
@@ -132,10 +111,7 @@ export default function Statistics({ onDone }) {
   }, [students, month, numericGroupId]);
 
   return (
-    <div
-      dir="rtl"
-      className="min-h-screen bg-stone-50 font-sans text-stone-900"
-    >
+    <div dir="rtl" className="min-h-screen bg-stone-50 font-sans text-stone-900">
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8">
         <header className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-stone-900">الإحصائيات</h1>
@@ -152,9 +128,7 @@ export default function Statistics({ onDone }) {
         {/* الفلاتر */}
         <div className="mb-6 grid grid-cols-1 gap-4 rounded-2xl border border-stone-200 bg-white p-5 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-stone-900">
-              المجموعة
-            </label>
+            <label className="mb-1.5 block text-sm font-medium text-stone-900">المجموعة</label>
             <select
               value={groupId}
               onChange={(e) => setGroupId(e.target.value)}
@@ -217,9 +191,7 @@ export default function Statistics({ onDone }) {
                   checked={selectedIds.size === rows.length && rows.length > 0}
                   onChange={() =>
                     setSelectedIds((prev) =>
-                      prev.size === rows.length
-                        ? new Set()
-                        : new Set(rows.map((r) => r.student.id)),
+                      prev.size === rows.length ? new Set() : new Set(rows.map((r) => r.student.id))
                     )
                   }
                   className="h-4 w-4 rounded border-stone-200 text-amber-800 focus:ring-amber-200"
@@ -230,20 +202,16 @@ export default function Statistics({ onDone }) {
               {selectedIds.size > 0 && (
                 <button
                   onClick={() => {
+                    const groupName = (activeGroups || []).find((g) => g.id === numericGroupId)?.groupName;
                     const items = rows
                       .filter((r) => selectedIds.has(r.student.id))
-                      .filter(
-                        (r) =>
-                          r.student.parentPhone && r.overallAverage !== null,
-                      )
+                      .filter((r) => r.student.parentPhone && r.overallAverage !== null)
                       .map((r) => ({
-                        student: r.student,
-                        groupName: (activeGroups || []).find(
-                          (g) => g.id === numericGroupId,
-                        )?.groupName,
-                        score: r.overallAverage,
+                        id: r.student.id,
+                        name: r.student.name,
+                        link: buildCumulativeLink(r.student, groupName, "بشكل عام", r.overallAverage),
                       }));
-                    if (items.length > 0) setSendQueue({ items, index: 0 });
+                    if (items.length > 0) setSendQueue(items);
                   }}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
                 >
@@ -257,18 +225,11 @@ export default function Statistics({ onDone }) {
               <StudentStatRow
                 key={row.student.id}
                 row={row}
-                groupName={
-                  (activeGroups || []).find((g) => g.id === numericGroupId)
-                    ?.groupName
-                }
+                groupName={(activeGroups || []).find((g) => g.id === numericGroupId)?.groupName}
                 monthLabel={monthOptions.find((m) => m.value === month)?.label}
                 expanded={expandedStudentId === row.student.id}
                 onToggle={() =>
-                  setExpandedStudentId(
-                    expandedStudentId === row.student.id
-                      ? null
-                      : row.student.id,
-                  )
+                  setExpandedStudentId(expandedStudentId === row.student.id ? null : row.student.id)
                 }
                 selected={selectedIds.has(row.student.id)}
                 onToggleSelect={() =>
@@ -284,19 +245,7 @@ export default function Statistics({ onDone }) {
           </div>
         )}
 
-        {sendQueue && (
-          <SendQueueDialog
-            queue={sendQueue}
-            onAdvance={() =>
-              setSendQueue((q) =>
-                q.index + 1 < q.items.length
-                  ? { ...q, index: q.index + 1 }
-                  : null,
-              )
-            }
-            onClose={() => setSendQueue(null)}
-          />
-        )}
+        {sendQueue && <SendQueueDialog items={sendQueue} onClose={() => setSendQueue(null)} />}
       </div>
     </div>
   );
@@ -305,37 +254,22 @@ export default function Statistics({ onDone }) {
 // ========================================================================
 // صف طالب واحد + تفاصيل قابلة للطي (يوماً بيوم)
 // ========================================================================
-function StudentStatRow({
-  row,
-  groupName,
-  monthLabel,
-  expanded,
-  onToggle,
-  selected,
-  onToggleSelect,
-}) {
+function StudentStatRow({ row, groupName, monthLabel, expanded, onToggle, selected, onToggleSelect }) {
   const { student, daily, sessionsCount, overallAverage, monthlyAverage } = row;
   const [showReport, setShowReport] = useState(false);
 
   const overallLink =
     student.parentPhone && overallAverage !== null
-      ? buildCumulativeLink(student, groupName, 'بشكل عام', overallAverage)
+      ? buildCumulativeLink(student, groupName, "بشكل عام", overallAverage)
       : null;
 
   const monthlyLink =
     student.parentPhone && monthlyAverage !== null
-      ? buildCumulativeLink(
-          student,
-          groupName,
-          `لشهر ${monthLabel || ''}`,
-          monthlyAverage,
-        )
+      ? buildCumulativeLink(student, groupName, `لشهر ${monthLabel || ""}`, monthlyAverage)
       : null;
 
   return (
-    <div
-      className={`rounded-2xl border p-4 transition ${selected ? 'border-amber-800 bg-amber-50' : 'border-stone-200 bg-white'}`}
-    >
+    <div className={`rounded-2xl border p-4 transition ${selected ? "border-amber-800 bg-amber-50" : "border-stone-200 bg-white"}`}>
       <div className="mb-1 flex items-center gap-2">
         <input
           type="checkbox"
@@ -355,7 +289,7 @@ function StudentStatRow({
 
         <div className="flex shrink-0 items-center gap-4">
           <ScoreBadge label="تراكمي كلي" value={overallAverage} />
-          <ScoreBadge label={monthLabel || 'الشهر'} value={monthlyAverage} />
+          <ScoreBadge label={monthLabel || "الشهر"} value={monthlyAverage} />
           <ChevronIcon expanded={expanded} />
         </div>
       </button>
@@ -411,12 +345,8 @@ function StudentStatRow({
                     key={d.date}
                     className="flex items-center justify-between rounded-lg bg-stone-50 px-3 py-1.5 text-xs"
                   >
-                    <span className="text-stone-500">
-                      {formatDateArabic(d.date)}
-                    </span>
-                    <span className="font-semibold text-stone-900">
-                      {d.scoreOutOf10}/10
-                    </span>
+                    <span className="text-stone-500">{formatDateArabic(d.date)}</span>
+                    <span className="font-semibold text-stone-900">{d.scoreOutOf10}/10</span>
                   </li>
                 ))}
             </ul>
@@ -439,127 +369,81 @@ function StudentStatRow({
 // ========================================================================
 // نافذة "تقرير" — فترة مخصَّصة (تقدر تمتد لعدة شهور) مع تفصيل يومي كامل
 // ========================================================================
-// ========================================================================
-// نافذة الإرسال المتسلسل — واتساب لا يدعم إرسال لأكتر من رقم في ضغطة واحدة
-// (قيد من واتساب نفسه، مش من التطبيق)، فهذه أفضل بديل عملي: نفتح شات كل طالب
-// جاهزاً بالرسالة، وبعد ما ترسله يدوياً تضغط "التالي" للطالب اللي بعده تلقائياً
-// ========================================================================
-function SendQueueDialog({ queue, onAdvance, onClose }) {
-  const { items, index } = queue;
-  const current = items[index];
-  const isLast = index === items.length - 1;
-
-  const link = buildCumulativeLink(
-    current.student,
-    current.groupName,
-    'بشكل عام',
-    current.score,
-  );
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="mb-1 text-xs font-medium text-stone-400">
-          طالب {index + 1} من {items.length}
-        </p>
-        <h3 className="mb-4 text-lg font-bold text-stone-900">
-          {current.student.name}
-        </h3>
-
-        <a
-          href={link}
-          target="_blank"
-          rel="noreferrer"
-          className="mb-3 flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
-        >
-          <WhatsAppIcon />
-          فتح واتساب لهذا الطالب
-        </a>
-
-        <div className="flex gap-3">
-          <button
-            onClick={isLast ? onClose : onAdvance}
-            className="flex-1 rounded-lg bg-amber-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-900"
-          >
-            {isLast ? 'إنهاء' : 'التالي'}
-          </button>
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-lg border border-stone-200 px-4 py-2.5 text-sm font-medium text-stone-600 hover:bg-stone-50"
-          >
-            إيقاف
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function StudentReportDialog({ student, groupName, daily, onClose }) {
   const subjects = useMemo(() => loadSubjects(), []);
   const today = new Date().toISOString().slice(0, 10);
-  const monthAgo = new Date(Date.now() - 30 * 86400000)
-    .toISOString()
-    .slice(0, 10);
+  const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
 
   const [fromDate, setFromDate] = useState(monthAgo);
   const [toDate, setToDate] = useState(today);
-  const [subjectFilter, setSubjectFilter] = useState('all'); // "all" أو اسم مادة محدَّد
+  const [subjectFilter, setSubjectFilter] = useState("all"); // "all" أو اسم مادة محدَّد
   const [showPrintView, setShowPrintView] = useState(false);
 
   const filtered = useMemo(() => {
     return daily
       .filter((d) => d.date >= fromDate && d.date <= toDate)
-      .filter((d) => subjectFilter === 'all' || d.subject === subjectFilter)
+      .filter((d) => subjectFilter === "all" || d.subject === subjectFilter)
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [daily, fromDate, toDate, subjectFilter]);
 
   const periodAverage =
     filtered.length > 0
-      ? Number(
-          (
-            filtered.reduce((s, d) => s + d.scoreOutOf10, 0) / filtered.length
-          ).toFixed(2),
-        )
+      ? Number((filtered.reduce((s, d) => s + d.scoreOutOf10, 0) / filtered.length).toFixed(2))
       : null;
 
   // عدّادات الحضور
-  const presentCount = filtered.filter(
-    (d) => d.attendance === 'Present',
-  ).length;
-  const absentCount = filtered.filter((d) => d.attendance === 'Absent').length;
-  const excusedCount = filtered.filter(
-    (d) => d.attendance === 'Excused',
-  ).length;
+  const presentCount = filtered.filter((d) => d.attendance === "Present").length;
+  const absentCount = filtered.filter((d) => d.attendance === "Absent").length;
+  const excusedCount = filtered.filter((d) => d.attendance === "Excused").length;
 
   // متوسط كل بند لوحده (فقط للأيام اللي فعلاً اتسجَّل فيها البند ده — مستثنى = درجة كاملة)
   function componentAverage(key) {
     const recorded = filtered.filter((d) => d[key]?.recorded);
     if (recorded.length === 0) return null;
-    const sum = recorded.reduce(
-      (s, d) => s + (d[key].isExcused ? 5 : Number(d[key].stars) || 0),
-      0,
-    );
+    const sum = recorded.reduce((s, d) => s + (d[key].isExcused ? 5 : Number(d[key].stars) || 0), 0);
     return Number((sum / recorded.length).toFixed(2));
   }
-  const homeworkAvg = componentAverage('homework');
-  const recitationAvg = componentAverage('recitation');
-  const participationAvg = componentAverage('participation');
+  const homeworkAvg = componentAverage("homework");
+  const recitationAvg = componentAverage("recitation");
+  const participationAvg = componentAverage("participation");
 
   // كل الامتحانات اللي دخلها الطالب خلال الفترة والمادة المختارة
   const examEntries = filtered.filter((d) => d.exam?.recorded);
+
+  // تقدير كل مادة على حدة تراكمياً خلال نفس الفترة — يظهر فقط لو الطالب مسجَّل
+  // في أكتر من مادة فعلاً وفلتر المادة على "الكل"؛ لو مادة واحدة بس، عرض التفصيل
+  // ده بلا فايدة لأنه هيكرر نفس رقم التقييم التراكمي العام أعلاه بالظبط
+  const dateRangeOnly = useMemo(
+    () => daily.filter((d) => d.date >= fromDate && d.date <= toDate),
+    [daily, fromDate, toDate]
+  );
+  const distinctSubjects = useMemo(
+    () => [...new Set(dateRangeOnly.map((d) => d.subject).filter(Boolean))],
+    [dateRangeOnly]
+  );
+  const perSubjectAverages =
+    subjectFilter === "all" && distinctSubjects.length > 1
+      ? distinctSubjects.map((subj) => {
+          const subjDays = dateRangeOnly.filter((d) => d.subject === subj);
+          const avg =
+            subjDays.length > 0
+              ? Number((subjDays.reduce((s, d) => s + d.scoreOutOf10, 0) / subjDays.length).toFixed(2))
+              : null;
+          return { subject: subj, average: avg, count: subjDays.length };
+        })
+      : [];
 
   const periodLabel = `من ${formatDateArabic(fromDate)} إلى ${formatDateArabic(toDate)}`;
 
   const sendLink =
     student.parentPhone && periodAverage !== null
       ? buildCumulativeLink(student, groupName, periodLabel, periodAverage)
+      : null;
+
+  const studentSendLink =
+    student.phone && periodAverage !== null
+      ? buildCumulativeLink(student, groupName, periodLabel, periodAverage, student.phone)
       : null;
 
   return (
@@ -571,19 +455,13 @@ function StudentReportDialog({ student, groupName, daily, onClose }) {
         className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl bg-white p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-1 text-base font-bold text-stone-900">
-          تقرير {student.name}
-        </h3>
-        <p className="mb-4 text-xs text-stone-500">
-          اختر الفترة (تقدر تمتد لعدة شهور)
-        </p>
+        <h3 className="mb-1 text-base font-bold text-stone-900">تقرير {student.name}</h3>
+        <p className="mb-4 text-xs text-stone-500">اختر الفترة (تقدر تمتد لعدة شهور)</p>
 
         <div className="mb-4 flex-1 space-y-4 overflow-y-auto pl-1">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-stone-500">
-                من
-              </label>
+              <label className="mb-1 block text-xs font-medium text-stone-500">من</label>
               <input
                 type="date"
                 value={fromDate}
@@ -592,9 +470,7 @@ function StudentReportDialog({ student, groupName, daily, onClose }) {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-stone-500">
-                إلى
-              </label>
+              <label className="mb-1 block text-xs font-medium text-stone-500">إلى</label>
               <input
                 type="date"
                 value={toDate}
@@ -606,9 +482,7 @@ function StudentReportDialog({ student, groupName, daily, onClose }) {
 
           {subjects.length > 0 && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-stone-500">
-                المادة
-              </label>
+              <label className="mb-1 block text-xs font-medium text-stone-500">المادة</label>
               <select
                 value={subjectFilter}
                 onChange={(e) => setSubjectFilter(e.target.value)}
@@ -625,55 +499,47 @@ function StudentReportDialog({ student, groupName, daily, onClose }) {
           )}
 
           <div className="flex items-center justify-between rounded-xl bg-amber-50 px-4 py-3">
-            <span className="text-sm font-medium text-amber-900">
-              التقييم التراكمي خلال الفترة
-            </span>
+            <span className="text-sm font-medium text-amber-900">التقييم التراكمي خلال الفترة</span>
             <span className="text-lg font-bold text-amber-900">
-              {periodAverage === null ? '—' : `${periodAverage}/10`}
+              {periodAverage === null ? "—" : `${periodAverage}/10`}
             </span>
           </div>
+
+          {/* تقدير كل مادة تراكمياً — يظهر فقط لو مسجَّل في أكتر من مادة */}
+          {perSubjectAverages.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-stone-500">التقييم التراكمي لكل مادة</p>
+              <div className="space-y-1">
+                {perSubjectAverages.map((s) => (
+                  <div
+                    key={s.subject}
+                    className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-1.5 text-xs"
+                  >
+                    <span className="font-medium text-amber-900">
+                      {s.subject} <span className="text-amber-700">({s.count} حصة)</span>
+                    </span>
+                    <span className="font-bold text-amber-900">
+                      {s.average === null ? "—" : `${s.average}/10`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* عدّادات الحضور */}
           <div className="grid grid-cols-3 gap-2">
-            <MiniStat
-              label="حضر"
-              value={presentCount}
-              color="text-emerald-600 bg-emerald-50"
-            />
-            <MiniStat
-              label="غاب"
-              value={absentCount}
-              color="text-rose-600 bg-rose-50"
-            />
-            <MiniStat
-              label="مستثنى"
-              value={excusedCount}
-              color="text-amber-700 bg-amber-50"
-            />
+            <MiniStat label="حضر" value={presentCount} color="text-emerald-600 bg-emerald-50" />
+            <MiniStat label="غاب" value={absentCount} color="text-rose-600 bg-rose-50" />
+            <MiniStat label="حضر متأخر" value={excusedCount} color="text-amber-700 bg-amber-50" />
           </div>
 
           {/* متوسط كل بند لوحده */}
-          {(homeworkAvg !== null ||
-            recitationAvg !== null ||
-            participationAvg !== null) && (
+          {(homeworkAvg !== null || recitationAvg !== null || participationAvg !== null) && (
             <div className="grid grid-cols-3 gap-2">
-              <MiniStat
-                label="الواجب"
-                value={homeworkAvg !== null ? `${homeworkAvg}/5` : '—'}
-                color="text-stone-700 bg-stone-50"
-              />
-              <MiniStat
-                label="التسميع"
-                value={recitationAvg !== null ? `${recitationAvg}/5` : '—'}
-                color="text-stone-700 bg-stone-50"
-              />
-              <MiniStat
-                label="التفاعل"
-                value={
-                  participationAvg !== null ? `${participationAvg}/5` : '—'
-                }
-                color="text-stone-700 bg-stone-50"
-              />
+              <MiniStat label="الواجب" value={homeworkAvg !== null ? `${homeworkAvg}/5` : "—"} color="text-stone-700 bg-stone-50" />
+              <MiniStat label="التسميع" value={recitationAvg !== null ? `${recitationAvg}/5` : "—"} color="text-stone-700 bg-stone-50" />
+              <MiniStat label="التفاعل" value={participationAvg !== null ? `${participationAvg}/5` : "—"} color="text-stone-700 bg-stone-50" />
             </div>
           )}
 
@@ -689,13 +555,9 @@ function StudentReportDialog({ student, groupName, daily, onClose }) {
                     key={d.date}
                     className="flex items-center justify-between rounded-lg bg-stone-50 px-3 py-1.5 text-xs"
                   >
-                    <span className="text-stone-600">
-                      {formatDateArabic(d.date)}
-                    </span>
+                    <span className="text-stone-600">{formatDateArabic(d.date)}</span>
                     <span className="font-semibold text-stone-900">
-                      {d.exam.isExcused
-                        ? 'مستثنى'
-                        : `${d.exam.score}/${d.exam.total || '؟'}`}
+                      {d.exam.isExcused ? "مستثنى" : `${d.exam.score}/${d.exam.total || "؟"}`}
                     </span>
                   </li>
                 ))}
@@ -706,38 +568,24 @@ function StudentReportDialog({ student, groupName, daily, onClose }) {
           {/* جدول يومي تفصيلي */}
           <div className="overflow-hidden rounded-xl border border-stone-200">
             {filtered.length === 0 ? (
-              <p className="p-4 text-center text-xs text-stone-400">
-                لا توجد حصص مسجَّلة في هذه الفترة.
-              </p>
+              <p className="p-4 text-center text-xs text-stone-400">لا توجد حصص مسجَّلة في هذه الفترة.</p>
             ) : (
               <table className="w-full text-xs">
                 <thead className="bg-stone-50 text-stone-500">
                   <tr>
-                    <th className="px-3 py-2 text-right font-medium">
-                      التاريخ
-                    </th>
+                    <th className="px-3 py-2 text-right font-medium">التاريخ</th>
                     <th className="px-3 py-2 text-right font-medium">الحضور</th>
                     <th className="px-3 py-2 text-right font-medium">المادة</th>
-                    <th className="px-3 py-2 text-right font-medium">
-                      التقييم
-                    </th>
+                    <th className="px-3 py-2 text-right font-medium">التقييم</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filtered.map((d) => (
                     <tr key={d.date}>
-                      <td className="px-3 py-2 text-stone-900">
-                        {formatDateArabic(d.date)}
-                      </td>
-                      <td className="px-3 py-2 text-stone-500">
-                        {ATTENDANCE_LABEL_AR[d.attendance] || '—'}
-                      </td>
-                      <td className="px-3 py-2 text-stone-500">
-                        {d.subject || '—'}
-                      </td>
-                      <td className="px-3 py-2 font-semibold text-stone-900">
-                        {d.scoreOutOf10}/10
-                      </td>
+                      <td className="px-3 py-2 text-stone-900">{formatDateArabic(d.date)}</td>
+                      <td className="px-3 py-2 text-stone-500">{ATTENDANCE_LABEL_AR[d.attendance] || "—"}</td>
+                      <td className="px-3 py-2 text-stone-500">{d.subject || "—"}</td>
+                      <td className="px-3 py-2 font-semibold text-stone-900">{d.scoreOutOf10}/10</td>
                     </tr>
                   ))}
                 </tbody>
@@ -746,25 +594,39 @@ function StudentReportDialog({ student, groupName, daily, onClose }) {
           </div>
         </div>
 
-        <div className="mt-4 flex gap-3">
+        <div className="mt-4 flex flex-col gap-2">
           <button
             onClick={() => setShowPrintView(true)}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-amber-800 px-4 py-2.5 text-sm font-semibold text-amber-800 hover:bg-amber-50"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-amber-800 px-4 py-2.5 text-sm font-semibold text-amber-800 hover:bg-amber-50"
           >
             <PdfIcon />
-            تصدير PDF
+            تحميل / طباعة PDF
           </button>
-          {sendLink && (
-            <a
-              href={sendLink}
-              target="_blank"
-              rel="noreferrer"
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
-            >
-              <WhatsAppIcon />
-              إرسال هذا التقرير لولي الأمر
-            </a>
-          )}
+
+          <div className="flex gap-2">
+            {sendLink && (
+              <a
+                href={sendLink}
+                target="_blank"
+                rel="noreferrer"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                <WhatsAppIcon />
+                إرسال لولي الأمر
+              </a>
+            )}
+            {studentSendLink && (
+              <a
+                href={studentSendLink}
+                target="_blank"
+                rel="noreferrer"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+              >
+                <WhatsAppIcon />
+                إرسال للطالب
+              </a>
+            )}
+          </div>
         </div>
         <button
           onClick={onClose}
@@ -790,6 +652,7 @@ function StudentReportDialog({ student, groupName, daily, onClose }) {
           recitationAvg={recitationAvg}
           participationAvg={participationAvg}
           examEntries={examEntries}
+          perSubjectAverages={perSubjectAverages}
           onClose={() => setShowPrintView(false)}
         />
       )}
@@ -820,6 +683,7 @@ function PrintableReportView({
   recitationAvg,
   participationAvg,
   examEntries,
+  perSubjectAverages = [],
   onClose,
 }) {
   return (
@@ -852,24 +716,20 @@ function PrintableReportView({
         </button>
       </div>
 
-      <div
-        id="printable-report"
-        dir="rtl"
-        className="mx-auto max-w-2xl px-6 py-8 font-sans text-stone-900"
-      >
-        <p className="mb-1 text-sm font-semibold text-amber-800">موافي</p>
+      <div id="printable-report" dir="rtl" className="mx-auto max-w-2xl px-6 py-8 font-sans text-stone-900">
+        <p className="mb-1 text-sm font-semibold text-amber-800">Mowafy</p>
         <h1 className="mb-1 text-2xl font-bold">تقرير أداء الطالب</h1>
         <p className="mb-6 text-sm text-stone-500">
-          {student.name} — {groupName || '—'}
-          {subjectFilter !== 'all' ? ` — مادة: ${subjectFilter}` : ''}
-          {' — '}من {formatDateArabic(fromDate)} إلى {formatDateArabic(toDate)}
+          {student.name} — {groupName || "—"}
+          {subjectFilter !== "all" ? ` — مادة: ${subjectFilter}` : ""}
+          {" — "}من {formatDateArabic(fromDate)} إلى {formatDateArabic(toDate)}
         </p>
 
         <div className="mb-6 grid grid-cols-2 gap-3">
           <div className="rounded-xl border border-stone-200 p-4 text-center">
             <p className="text-xs text-stone-500">التقييم التراكمي</p>
             <p className="mt-1 text-2xl font-bold text-amber-800">
-              {periodAverage === null ? '—' : `${periodAverage}/10`}
+              {periodAverage === null ? "—" : `${periodAverage}/10`}
             </p>
           </div>
           <div className="rounded-xl border border-stone-200 p-4">
@@ -884,36 +744,50 @@ function PrintableReportView({
               </div>
               <div>
                 <p className="font-bold text-amber-700">{excusedCount}</p>
-                <p className="text-[11px] text-stone-500">مستثنى</p>
+                <p className="text-[11px] text-stone-500">حضر متأخر</p>
               </div>
             </div>
           </div>
         </div>
 
-        {(homeworkAvg !== null ||
-          recitationAvg !== null ||
-          participationAvg !== null) && (
+        {perSubjectAverages.length > 0 && (
           <div className="mb-6">
-            <h2 className="mb-2 text-sm font-bold text-stone-900">
-              متوسط البنود
-            </h2>
+            <h2 className="mb-2 text-sm font-bold text-stone-900">التقييم التراكمي لكل مادة</h2>
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-stone-200 text-right text-stone-500">
+                  <th className="py-1.5 font-medium">المادة</th>
+                  <th className="py-1.5 font-medium">عدد الحصص</th>
+                  <th className="py-1.5 font-medium">التقييم</th>
+                </tr>
+              </thead>
+              <tbody>
+                {perSubjectAverages.map((s) => (
+                  <tr key={s.subject} className="border-b border-stone-100">
+                    <td className="py-1.5">{s.subject}</td>
+                    <td className="py-1.5 text-stone-500">{s.count}</td>
+                    <td className="py-1.5 font-semibold">{s.average === null ? "—" : `${s.average}/10`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {(homeworkAvg !== null || recitationAvg !== null || participationAvg !== null) && (
+          <div className="mb-6">
+            <h2 className="mb-2 text-sm font-bold text-stone-900">متوسط البنود</h2>
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="rounded-lg bg-stone-50 py-2">
-                <p className="font-bold text-stone-900">
-                  {homeworkAvg !== null ? `${homeworkAvg}/5` : '—'}
-                </p>
+                <p className="font-bold text-stone-900">{homeworkAvg !== null ? `${homeworkAvg}/5` : "—"}</p>
                 <p className="text-[11px] text-stone-500">الواجب</p>
               </div>
               <div className="rounded-lg bg-stone-50 py-2">
-                <p className="font-bold text-stone-900">
-                  {recitationAvg !== null ? `${recitationAvg}/5` : '—'}
-                </p>
+                <p className="font-bold text-stone-900">{recitationAvg !== null ? `${recitationAvg}/5` : "—"}</p>
                 <p className="text-[11px] text-stone-500">التسميع</p>
               </div>
               <div className="rounded-lg bg-stone-50 py-2">
-                <p className="font-bold text-stone-900">
-                  {participationAvg !== null ? `${participationAvg}/5` : '—'}
-                </p>
+                <p className="font-bold text-stone-900">{participationAvg !== null ? `${participationAvg}/5` : "—"}</p>
                 <p className="text-[11px] text-stone-500">التفاعل</p>
               </div>
             </div>
@@ -922,9 +796,7 @@ function PrintableReportView({
 
         {examEntries.length > 0 && (
           <div className="mb-6">
-            <h2 className="mb-2 text-sm font-bold text-stone-900">
-              الامتحانات ({examEntries.length})
-            </h2>
+            <h2 className="mb-2 text-sm font-bold text-stone-900">الامتحانات ({examEntries.length})</h2>
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-stone-200 text-right text-stone-500">
@@ -937,9 +809,7 @@ function PrintableReportView({
                   <tr key={d.date} className="border-b border-stone-100">
                     <td className="py-1.5">{formatDateArabic(d.date)}</td>
                     <td className="py-1.5 font-semibold">
-                      {d.exam.isExcused
-                        ? 'مستثنى'
-                        : `${d.exam.score}/${d.exam.total || '؟'}`}
+                      {d.exam.isExcused ? "مستثنى" : `${d.exam.score}/${d.exam.total || "؟"}`}
                     </td>
                   </tr>
                 ))}
@@ -949,9 +819,7 @@ function PrintableReportView({
         )}
 
         <div>
-          <h2 className="mb-2 text-sm font-bold text-stone-900">
-            التفصيل اليومي ({filtered.length} حصة)
-          </h2>
+          <h2 className="mb-2 text-sm font-bold text-stone-900">التفصيل اليومي ({filtered.length} حصة)</h2>
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-stone-200 text-right text-stone-500">
@@ -965,10 +833,8 @@ function PrintableReportView({
               {filtered.map((d) => (
                 <tr key={d.date} className="border-b border-stone-100">
                   <td className="py-1.5">{formatDateArabic(d.date)}</td>
-                  <td className="py-1.5 text-stone-500">
-                    {ATTENDANCE_LABEL_AR[d.attendance] || '—'}
-                  </td>
-                  <td className="py-1.5 text-stone-500">{d.subject || '—'}</td>
+                  <td className="py-1.5 text-stone-500">{ATTENDANCE_LABEL_AR[d.attendance] || "—"}</td>
+                  <td className="py-1.5 text-stone-500">{d.subject || "—"}</td>
                   <td className="py-1.5 font-semibold">{d.scoreOutOf10}/10</td>
                 </tr>
               ))}
@@ -977,8 +843,7 @@ function PrintableReportView({
         </div>
 
         <p className="mt-8 text-center text-[10px] text-stone-400">
-          تم إنشاؤه بواسطة تطبيق موافي —{' '}
-          {formatDateArabic(new Date().toISOString().slice(0, 10))}
+          تم إنشاؤه بواسطة تطبيق Mowafy — {formatDateArabic(new Date().toISOString().slice(0, 10))}
         </p>
       </div>
     </div>
@@ -987,24 +852,13 @@ function PrintableReportView({
 
 function PdfIcon() {
   return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
       <polyline points="14 2 14 8 20 8" />
     </svg>
   );
 }
-const ATTENDANCE_LABEL_AR = {
-  Present: 'حاضر',
-  Absent: 'غائب',
-  Excused: 'مستثنى',
-};
+const ATTENDANCE_LABEL_AR = { Present: "حاضر", Absent: "غائب", Excused: "حضر متأخر" };
 
 function MiniStat({ label, value, color }) {
   return (
@@ -1017,14 +871,7 @@ function MiniStat({ label, value, color }) {
 
 function ReportIcon() {
   return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
       <polyline points="14 2 14 8 20 8" />
       <line x1="16" y1="13" x2="8" y2="13" />
@@ -1037,18 +884,18 @@ function ReportIcon() {
 // بناء رسالة الواتساب للتقرير التراكمي — تقرأ القالب "الافتراضي" لفئة
 // "تقرير تراكمي" وتستبدل متغيراته بالفترة والدرجة الفعليتين
 // ========================================================================
-function buildCumulativeLink(student, groupName, periodLabel, score) {
-  const template = getDefaultTemplate('cumulative_report');
+function buildCumulativeLink(student, groupName, periodLabel, score, phone = student.parentPhone) {
+  const template = getDefaultTemplate("cumulative_report");
   if (!template) return null;
 
   const message = fillTemplate(template.body, {
-    '[اسم_الطالب]': student.name,
-    '[المجموعة]': groupName || '',
-    '[الفترة]': periodLabel,
-    '[التقييم_التراكمي]': `${score}`,
+    "[اسم_الطالب]": student.name,
+    "[المجموعة]": groupName || "",
+    "[الفترة]": periodLabel,
+    "[التقييم_التراكمي]": `${score}`,
   });
 
-  return buildWaLink(student.parentPhone, message);
+  return buildWaLink(phone, message);
 }
 
 function WhatsAppIcon() {
@@ -1062,18 +909,18 @@ function WhatsAppIcon() {
 function ScoreBadge({ label, value }) {
   const color =
     value === null
-      ? 'bg-stone-50 text-stone-400'
+      ? "bg-stone-50 text-stone-400"
       : value >= 8
-        ? 'bg-emerald-50 text-emerald-600'
-        : value >= 5
-          ? 'bg-amber-50 text-amber-600'
-          : 'bg-rose-50 text-rose-600';
+      ? "bg-emerald-50 text-emerald-600"
+      : value >= 5
+      ? "bg-amber-50 text-amber-600"
+      : "bg-rose-50 text-rose-600";
 
   return (
     <div className="text-center">
       <p className="mb-0.5 text-[10px] text-stone-400">{label}</p>
       <span className={`rounded-full px-2 py-1 text-xs font-bold ${color}`}>
-        {value === null ? '—' : `${value}/10`}
+        {value === null ? "—" : `${value}/10`}
       </span>
     </div>
   );
@@ -1088,7 +935,7 @@ function ChevronIcon({ expanded }) {
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
-      className={`shrink-0 text-stone-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
+      className={`shrink-0 text-stone-400 transition-transform ${expanded ? "rotate-180" : ""}`}
     >
       <polyline points="6 9 12 15 18 9" />
     </svg>
