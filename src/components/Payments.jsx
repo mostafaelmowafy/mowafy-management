@@ -86,7 +86,7 @@ export default function Payments({ onDone }) {
     return (students || []).map((s) => ({
       student: s,
       payment: paymentMap.get(s.id) || null,
-      isExempt: (s.feeExemptMonths || []).includes(month),
+      isExempt: !!s.feeExemptPermanent || (s.feeExemptMonths || []).includes(month),
     }));
   }, [students, paymentMap, month]);
 
@@ -206,6 +206,7 @@ export default function Payments({ onDone }) {
                 group={selectedGroup}
                 payment={payment}
                 isExempt={isExempt}
+                defaultAmount={selectedGroup?.monthlyFee || ""}
                 month={month}
                 onPay={(amount) => handlePay(student.id, amount)}
               />
@@ -220,8 +221,16 @@ export default function Payments({ onDone }) {
 // ========================================================================
 // صف طالب واحد
 // ========================================================================
-function PaymentRow({ student, group, payment, isExempt, month, onPay }) {
-  const [amount, setAmount] = useState("");
+function PaymentRow({ student, group, payment, isExempt, month, onPay, defaultAmount }) {
+  // الرسم الشهري المحدَّد للمجموعة هو القيمة الافتراضية في خانة المبلغ — المدرس
+  // يقدر يعدّلها لو الطالب بيدفع مبلغ مختلف
+  const [amount, setAmount] = useState(defaultAmount ? String(defaultAmount) : "");
+
+  // لو غيّرنا المجموعة/الشهر فتغيّرت القيمة الافتراضية، نحدّث الخانة طالما المدرس
+  // لسه مكتبش فيها حاجة مخصَّصة
+  useEffect(() => {
+    setAmount(defaultAmount ? String(defaultAmount) : "");
+  }, [defaultAmount]);
   const [saving, setSaving] = useState(false);
 
   const whatsappHref = student.parentPhone && !isExempt
@@ -233,7 +242,7 @@ function PaymentRow({ student, group, payment, isExempt, month, onPay }) {
     setSaving(true);
     try {
       await onPay(amount);
-      setAmount("");
+      setAmount(defaultAmount ? String(defaultAmount) : "");
     } finally {
       setSaving(false);
     }

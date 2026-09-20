@@ -42,17 +42,13 @@ src/
 
 ```jsx
 // App.jsx
-import Dashboard from './components/Dashboard';
+import Dashboard from "./components/Dashboard";
 
 export default function App() {
   return (
     <Dashboard
-      onStartSession={() => {
-        /* التنقل لشاشة بدء الحصة */
-      }}
-      onGoToArchive={() => {
-        /* التنقل لشاشة الأرشفة */
-      }}
+      onStartSession={() => {/* التنقل لشاشة بدء الحصة */}}
+      onGoToArchive={() => {/* التنقل لشاشة الأرشفة */}}
     />
   );
 }
@@ -65,13 +61,9 @@ export default function App() {
 ## شاشة إضافة طالب (`AddStudent.jsx`)
 
 ```jsx
-import AddStudent from './components/AddStudent';
+import AddStudent from "./components/AddStudent";
 
-<AddStudent
-  onDone={() => {
-    /* التنقل رجوعاً للوحة التحكم */
-  }}
-/>;
+<AddStudent onDone={() => {/* التنقل رجوعاً للوحة التحكم */}} />
 ```
 
 - النموذج مبني بـ `react-hook-form` (تحقق فوري من الحقول: الاسم مطلوب، رقم ولي الأمر
@@ -89,13 +81,9 @@ import AddStudent from './components/AddStudent';
 ## شاشة مسح الحضور (`AttendanceScanner.jsx`)
 
 ```jsx
-import AttendanceScanner from './components/AttendanceScanner';
+import AttendanceScanner from "./components/AttendanceScanner";
 
-<AttendanceScanner
-  onDone={() => {
-    /* التنقل رجوعاً للوحة التحكم */
-  }}
-/>;
+<AttendanceScanner onDone={() => {/* التنقل رجوعاً للوحة التحكم */}} />
 ```
 
 - تعمل الكاميرا الخلفية تلقائياً عبر `facingMode: "environment"` من `html5-qrcode`
@@ -118,13 +106,9 @@ import AttendanceScanner from './components/AttendanceScanner';
 ## شاشة التقييم (`Evaluations.jsx`)
 
 ```jsx
-import Evaluations from './components/Evaluations';
+import Evaluations from "./components/Evaluations";
 
-<Evaluations
-  onDone={() => {
-    /* التنقل رجوعاً للوحة التحكم */
-  }}
-/>;
+<Evaluations onDone={() => {/* التنقل رجوعاً للوحة التحكم */}} />
 ```
 
 ### تحديث في `db.js` (نسخة Schema رقم 2)
@@ -166,13 +150,9 @@ import Evaluations from './components/Evaluations';
 ## شاشة المدفوعات (`Payments.jsx`)
 
 ```jsx
-import Payments from './components/Payments';
+import Payments from "./components/Payments";
 
-<Payments
-  onDone={() => {
-    /* التنقل رجوعاً للوحة التحكم */
-  }}
-/>;
+<Payments onDone={() => {/* التنقل رجوعاً للوحة التحكم */}} />
 ```
 
 - **فلترة الشهر**: قائمة أشهر مبنية تلقائياً حول الشهر الحالي (6 قبل و6 بعد) بصيغة
@@ -191,13 +171,9 @@ import Payments from './components/Payments';
 ## شاشة إدارة المجموعات (`Groups.jsx`)
 
 ```jsx
-import Groups from './components/Groups';
+import Groups from "./components/Groups";
 
-<Groups
-  onDone={() => {
-    /* التنقل رجوعاً للوحة التحكم */
-  }}
-/>;
+<Groups onDone={() => {/* التنقل رجوعاً للوحة التحكم */}} />
 ```
 
 هذه الشاشة هي "نقطة البداية" الفعلية للتطبيق — بدونها لا يمكن اختبار أي شاشة أخرى،
@@ -232,12 +208,12 @@ import Groups from './components/Groups';
 
 ```jsx
 // src/main.jsx
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-import './index.css'; // ملف Tailwind (@tailwind base/components/utilities)
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import "./index.css"; // ملف Tailwind (@tailwind base/components/utilities)
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 ```
 
 - **التنقل**: حالة React بسيطة (`useState`) بدل `react-router-dom` — التطبيق شاشة واحدة
@@ -272,12 +248,12 @@ npm install -D tailwindcss postcss autoprefixer vite-plugin-pwa
 
 ```jsx
 // src/main.jsx
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-import './index.css'; // ضروري — هنا تُفعَّل توجيهات Tailwind الأساسية
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import "./index.css"; // ضروري — هنا تُفعَّل توجيهات Tailwind الأساسية
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 ```
 
 ### 3) أيقونات التطبيق
@@ -377,19 +353,14 @@ IndexedDB يعمل بشكل طبيعي، لكن قد يحتاج المدرس ف�
 ## شاشة الإعدادات (`Settings.jsx`)
 
 ```jsx
-import Settings from './components/Settings';
+import Settings from "./components/Settings";
 
-<Settings
-  onDone={() => {
-    /* التنقل رجوعاً للوحة التحكم */
-  }}
-/>;
+<Settings onDone={() => {/* التنقل رجوعاً للوحة التحكم */}} />
 ```
 
 مُدرَجة الآن ضمن القائمة الجانبية (Sidebar) في `App.jsx` مع أيقونة ترس مخصصة. تحتوي قسمين:
 
 ### 1) إدارة قوالب الواتساب
-
 - تبويبات للفئات الثلاث، وكل قالب يظهر مع Radio button لتحديده كافتراضي، وزرَي
   تعديل/حذف. حذف آخر قالب في الفئة معطَّل (زر باهت) لمنع ترك الفئة بلا أي قالب.
 - محرّر القالب (نافذة منبثقة) فيه حقل اسم + `textarea` للنص + شرائح (Chips) لكل
@@ -397,7 +368,6 @@ import Settings from './components/Settings';
   (وليس في نهايته فقط)، عبر تتبّع `selectionStart`/`selectionEnd` للـ `textarea`.
 
 ### 2) النسخ الاحتياطي والاستيراد
-
 - **تصدير**: يستخدم `exportAllData()` الجديدة في `db.js` (تُصدِّر الجداول الستة كاملة
   بما فيها `sessions`)، بنفس المنطق المستخدم في زر التصدير بلوحة التحكم — تم توحيد
   الدالتين لتفادي وجود نسختين مختلفتين قد تتباعدان لاحقاً عند إضافة جداول جديدة.
@@ -575,7 +545,7 @@ import Settings from './components/Settings';
 
 - اتشال العنوان الكبير المتغيّر لكل شاشة (كان بياخد سطرين ومساحة واضحة).
 - بقى الشريط العلوي صف واحد بسيط: **زر القائمة (Menu)** يمين، **اسم العلامة
-  "موافي"** في المنتصف بخط صغير، و**زر عودة دائم** يسار — يظهر في كل الشاشات
+  "Mowafy"** في المنتصف بخط صغير، و**زر عودة دائم** يسار — يظهر في كل الشاشات
   ويرجّعك للرئيسية بضغطة واحدة من أي مكان في التطبيق.
 - عناوين الشاشات (`title` في `SCREENS`) لسه موجودة ومُستخدَمة في شريط التنقل
   السفلي والقائمة الجانبية بنفس الشكل، بس مش بتتكرر تاني في الـ Header العلوي.
@@ -611,13 +581,9 @@ import Settings from './components/Settings';
 ### شاشة الإحصائيات
 
 ```jsx
-import Statistics from './components/Statistics';
+import Statistics from "./components/Statistics";
 
-<Statistics
-  onDone={() => {
-    /* التنقل رجوعاً للوحة التحكم */
-  }}
-/>;
+<Statistics onDone={() => {/* التنقل رجوعاً للوحة التحكم */}} />
 ```
 
 مُدرَجة في القائمة الجانبية. لكل مجموعة مختارة، تعرض قائمة طلابها وبجانب كل طالب:
@@ -674,7 +640,6 @@ import Statistics from './components/Statistics';
 
 في `Statistics.jsx`، تحت درجات كل طالب، زران جدد (يظهروا بس لو عنده رقم ولي أمر
 ودرجة محسوبة فعلاً — مش قبل ما يكون عنده أي حصص مسجَّلة):
-
 - **"إرسال التراكمي الكلي"**: بيبعت متوسط كل حصصه من أول يوم، الفترة بتظهر
   في الرسالة كـ"بشكل عام".
 - **"إرسال تراكمي [اسم الشهر]"**: بيبعت متوسط الشهر المختار فوق تحديداً.
@@ -700,7 +665,6 @@ import Statistics from './components/Statistics';
 ## تقرير مخصَّص لكل طالب (`Statistics.jsx`)
 
 زر "تقرير" جديد بجانب كل طالب في شاشة الإحصائيات، يفتح نافذة فيها:
-
 - اختيار فترة حرة (من تاريخ لتاريخ، تقدر تمتد لأكتر من شهر بسهولة).
 - التقييم التراكمي لهذه الفترة تحديداً في الأعلى.
 - جدول تفصيلي يوماً بيوم: التاريخ، حالة الحضور، **اسم المادة** (مسحوبة من إعدادات
@@ -717,7 +681,6 @@ import Statistics from './components/Statistics';
 أي زر تبديل أو منطق إضافي.
 
 **ما تمت إزالته بالكامل**:
-
 - زر ووضع "المظهر" من شاشة الإعدادات.
 - ملف `src/lib/theme.js` (حُذف تماماً).
 - خيار `darkMode` من `tailwind.config.js`.
@@ -732,7 +695,6 @@ import Statistics from './components/Statistics';
 ### 1) مؤشر الماوس (Cursor) للعناصر القابلة للنقر
 
 أضفت قاعدة عامة واحدة في `src/index.css`:
-
 ```css
 @layer base {
   button:not(:disabled) {
@@ -740,7 +702,6 @@ import Statistics from './components/Statistics';
   }
 }
 ```
-
 بدل ما نحتاج نكرر `cursor-pointer` يدوياً على كل زر في كل شاشة (كانت المتصفحات
 معطية الأزرار `cursor: default` افتراضياً في حالات كتير). القاعدة دي تطبَّق تلقائياً
 على أي `<button>` مش `disabled` في كل التطبيق دفعة واحدة.
@@ -848,7 +809,6 @@ import Statistics from './components/Statistics';
 كل صف طالب في `Evaluations.jsx` بقى فيه Checkbox، مع خيار "تحديد الكل" فوق
 القائمة. بمجرد ما تحدد طالب واحد على الأقل، يظهر **شريط إجراءات جماعي** ثابت
 أسفل الشاشة فيه:
-
 - تعليم حاضر / غائب / مستثنى للكل دفعة واحدة.
 - (لو الواجب مفعّل لهذه الحصة) الكل: واجب كامل / الكل: لم ينجز الواجب.
 - (لو التسميع مفعّل) الكل: تسميع كامل.
@@ -892,7 +852,6 @@ Checkbox)، واضغط "إرسال تقارير لـ N طالب" — تفتح ن
 أيقونة بحث جديدة في الـ Header (بين المنيو وزر الرئيسية). بمجرد الكتابة، يظهر
 حتى 8 نتائج مطابقة (اسم الطالب يحتوي النص المكتوب) مع اسم مجموعة كل واحد. الضغط
 على أي نتيجة:
-
 - ينقلك مباشرة لشاشة "إدارة المجموعات"
 - يفتح تلقائياً قائمة طلاب **المجموعة الصحيحة** لهذا الطالب تحديداً (بدون ما
   تدوّر عليها بنفسك)
@@ -945,3 +904,12 @@ PDF جافاسكريبت (زي jsPDF أو pdf-lib)، استخدمت أسلوب "
    (استخدم `db.transaction()` لضمان التناسق).
 4. تسجيل Service Worker (عبر `next-pwa` إن استخدمت Next.js) لجعل التطبيق يعمل
    بدون إنترنت بالكامل حتى عند تحميل الصفحة أول مرة.
+
+## دفعة تعديلات: الحضور المتأخر + ملاحظة الطالب + قوالب أوضح + تقرير أشمل
+
+- **"مستثنى" في الحضور بقت "حضر متأخر"** — تغيير اسم فقط لحالة الحضور الثالثة (القيمة الداخلية `Excused` والسلوك الحسابي (نقاط كاملة) لم يتغيّرا). "مستثنى" فضلت زي ما هي في خانات الواجب/التسميع/التفاعل/الامتحان (معنى مختلف تماماً: استثناء من بند معيّن، مش حالة حضور).
+- **خانة ملاحظة لكل طالب لكل حصة** (`src/components/Evaluations.jsx`) — نص حر اختياري، بيتخزن كبند تقييم جديد `kind: "note"`. لو فاضية، **بتتجاهل تماماً** من رسالة الواتساب (مش سطر فاضي) — لأنها بتتضاف كسطر إضافي في نهاية الرسالة بعد التعبئة بالكود مباشرة، مش عن طريق نظام متغيرات القالب العادي.
+- **القوالب الافتراضية الأربعة اتعاد صياغتها** بشكل أوضح (عناوين، فواصل، إيموجي منظَّم) في `src/lib/whatsappTemplates.js`. **ملاحظة**: التحديث ده بيطبَّق تلقائياً بس على التثبيتات الجديدة أو الفئات الناقصة — لو عندك قوالب محفوظة بالفعل، مش هتتغيّر تلقائياً احتراماً لأي تعديل عملته بنفسك؛ عدّلها يدوياً من الإعدادات لو عايز نفس الشكل الجديد.
+- **تقرير الإحصائيات**: قسم جديد "التقييم التراكمي لكل مادة" (يظهر بس لو الطالب مسجَّل حضور في أكتر من مادة خلال الفترة وفلتر المادة على "الكل")، وموجود في نافذة التقرير وفي نسخة PDF/الطباعة.
+- **3 إجراءات واضحة للتقرير**: "تحميل / طباعة PDF"، "إرسال لولي الأمر"، "إرسال للطالب" (باستخدام رقم هاتف الطالب نفسه لو موجود، منفصل عن رقم ولي الأمر).
+- **الإرسال الجماعي المتسلسل بقى موجود في شاشة التقييم كمان** — زر "📩 إرسال تقارير للمحددين" في شريط الإجراءات الجماعية، بيستخدم نفس نافذة الإرسال المتسلسل المشتركة (`src/components/SendQueueDialog.jsx`، مستخرجة الآن كمكوّن واحد يُستخدَم من شاشتَي التقييم والإحصائيات معاً بدل التكرار).

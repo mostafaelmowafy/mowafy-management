@@ -5,61 +5,51 @@
 // بدون حاجة لعناوين URL قابلة للمشاركة أو تاريخ تصفح، فالحالة البسيطة أخف وأنسب
 // لتطبيق PWA يعمل بالكامل Offline على جهاز واحد.
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 
-import { db } from './db/db';
-import Dashboard from './components/Dashboard';
-import AttendanceScanner from './components/AttendanceScanner';
-import Evaluations from './components/Evaluations';
-import Payments from './components/Payments';
-import Groups from './components/Groups';
-import AddStudent from './components/AddStudent';
-import Settings from './components/Settings';
-import Finance from './components/Finance';
-import Statistics from './components/Statistics';
-import { getUpcomingSessions, formatSessionWhen } from './lib/schedule';
-import {
-  loadReminderSettings,
-  occurrenceKey,
-  isDismissed,
-  dismissOccurrence,
-} from './lib/reminders';
+import { db } from "./db/db";
+import Dashboard from "./components/Dashboard";
+import AttendanceScanner from "./components/AttendanceScanner";
+import Evaluations from "./components/Evaluations";
+import Payments from "./components/Payments";
+import Groups from "./components/Groups";
+import AddStudent from "./components/AddStudent";
+import Settings from "./components/Settings";
+import Finance from "./components/Finance";
+import Statistics from "./components/Statistics";
+import { getUpcomingSessions, formatSessionWhen } from "./lib/schedule";
+import { loadReminderSettings, occurrenceKey, isDismissed, dismissOccurrence } from "./lib/reminders";
 
 const CHECK_INTERVAL_MS = 20000; // فحص كل 20 ثانية — خفيف ولا يستهلك بطارية ملحوظة
 
 // تعريف الشاشات: المفتاح، العنوان الظاهر في الـ Header، والأيقونة (لشريط التنقل)
 const SCREENS = {
-  dashboard: { title: 'الرئيسية', Icon: HomeIcon },
-  scanner: { title: 'تسجيل الحضور', Icon: ScanIcon },
-  evaluations: { title: 'تقييم الحصة', Icon: StarIcon },
-  payments: { title: 'المدفوعات', Icon: WalletIcon },
-  groups: { title: 'إدارة المجموعات', Icon: UsersIcon },
-  addStudent: { title: 'إضافة طالب', Icon: UserPlusIcon },
-  finance: { title: 'المالية', Icon: FinanceIcon },
-  statistics: { title: 'الإحصائيات', Icon: StatsIcon },
-  settings: { title: 'الإعدادات', Icon: SettingsIcon },
+  dashboard: { title: "الرئيسية", Icon: HomeIcon },
+  scanner: { title: "تسجيل الحضور", Icon: ScanIcon },
+  evaluations: { title: "تقييم الحصة", Icon: StarIcon },
+  payments: { title: "المدفوعات", Icon: WalletIcon },
+  groups: { title: "إدارة المجموعات", Icon: UsersIcon },
+  addStudent: { title: "إضافة طالب", Icon: UserPlusIcon },
+  finance: { title: "المالية", Icon: FinanceIcon },
+  statistics: { title: "الإحصائيات", Icon: StatsIcon },
+  settings: { title: "الإعدادات", Icon: SettingsIcon },
 };
 
 // شاشات شريط التنقل السفلي (الأكثر استخداماً يومياً)
-const BOTTOM_NAV_KEYS = ['dashboard', 'scanner', 'evaluations', 'payments'];
+const BOTTOM_NAV_KEYS = ["dashboard", "scanner", "evaluations", "payments"];
 // شاشات القائمة الجانبية (إدارية، أقل تكراراً)
-const SIDEBAR_KEYS = [
-  'groups',
-  'addStudent',
-  'finance',
-  'statistics',
-  'settings',
-];
+const SIDEBAR_KEYS = ["groups", "addStudent", "finance", "statistics", "settings"];
 
 export default function App() {
-  const [view, setView] = useState('dashboard');
+  const [view, setView] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeReminder, setActiveReminder] = useState(null); // { key, groupId, groupName, date }
   const [startSessionGroupId, setStartSessionGroupId] = useState(null); // مجموعة "ابدأ الحصة"
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [studentTarget, setStudentTarget] = useState(null); // { groupId, studentId } — نتيجة بحث تم اختيارها
+  const [evalStudentTarget, setEvalStudentTarget] = useState(null); // نتيجة بحث وأنت داخل شاشة التقييم
   const notifiedKeysRef = useRef(new Set()); // يمنع تكرار إشعار المتصفح الأصلي لنفس الموعد
 
   // كل الطلاب والمجموعات محمَّلين دائماً بخفة (بيانات نصية بسيطة) لدعم البحث الفوري
@@ -75,12 +65,14 @@ export default function App() {
     const q = searchQuery.trim();
     if (!q) return [];
     return (allStudents || [])
-      .filter((s) => s.name.includes(q))
+      .filter(
+        (s) =>
+          s.name.includes(q) ||
+          (s.phone || "").includes(q) ||
+          (s.parentPhone || "").includes(q)
+      )
       .slice(0, 8)
-      .map((s) => ({
-        ...s,
-        groupName: groupNameById.get(s.groupId) || 'بدون مجموعة',
-      }));
+      .map((s) => ({ ...s, groupName: groupNameById.get(s.groupId) || "بدون مجموعة" }));
   }, [allStudents, searchQuery, groupNameById]);
 
   function goTo(screenKey) {
@@ -89,15 +81,21 @@ export default function App() {
   }
 
   function goToStudent(student) {
-    setStudentTarget({ groupId: student.groupId, studentId: student.id });
     setSearchOpen(false);
-    setSearchQuery('');
-    goTo('groups');
+    setSearchQuery("");
+    // لو أنت فاتح شاشة "تقييم الحصة" بالفعل، البحث يجيبلك الطالب في نفس الشاشة
+    // (يبدّل المجموعة تلقائياً لو لازم ويبرز صفه) بدل ما ينقلك لمكان تاني
+    if (view === "evaluations") {
+      setEvalStudentTarget({ groupId: student.groupId, studentId: student.id });
+      return;
+    }
+    setStudentTarget({ groupId: student.groupId, studentId: student.id });
+    goTo("groups");
   }
 
   function handleStartGroupSession(groupId) {
     setStartSessionGroupId(groupId);
-    goTo('evaluations');
+    goTo("evaluations");
   }
 
   // ------------------------------------------------------------
@@ -117,9 +115,7 @@ export default function App() {
       const upcoming = await getUpcomingSessions(10);
 
       const due = upcoming.find((occ) => {
-        const triggerAt = new Date(
-          occ.date.getTime() - settings.minutesBefore * 60000,
-        );
+        const triggerAt = new Date(occ.date.getTime() - settings.minutesBefore * 60000);
         return now >= triggerAt && now < occ.date;
       });
 
@@ -134,23 +130,18 @@ export default function App() {
         return;
       }
 
-      setActiveReminder({
-        key,
-        groupId: due.groupId,
-        groupName: due.groupName,
-        date: due.date,
-      });
+      setActiveReminder({ key, groupId: due.groupId, groupName: due.groupName, date: due.date });
 
       // إشعار المتصفح الأصلي (إن كان الإذن ممنوحاً) — مرة واحدة فقط لكل موعد
       if (
-        typeof Notification !== 'undefined' &&
-        Notification.permission === 'granted' &&
+        typeof Notification !== "undefined" &&
+        Notification.permission === "granted" &&
         !notifiedKeysRef.current.has(key)
       ) {
         notifiedKeysRef.current.add(key);
-        new Notification('تذكير بموعد حصة', {
+        new Notification("تذكير بموعد حصة", {
           body: `${due.groupName} — ${formatSessionWhen(due.date)}`,
-          icon: '/icons/icon-192.png',
+          icon: "/icons/icon-192.png",
         });
       }
     }
@@ -166,11 +157,7 @@ export default function App() {
   }
 
   return (
-    <div
-      dir="rtl"
-      lang="ar"
-      className="flex min-h-screen flex-col bg-white font-sans text-stone-900"
-    >
+    <div dir="rtl" lang="ar" className="flex min-h-screen flex-col bg-white font-sans text-stone-900">
       {/* ================================================== */}
       {/* Header علوي + بانر التنبيه — مجمّعين في حاوية ثابتة واحدة، بدل ما يكون
           كل واحد فيهم ثابتاً لوحده بإزاحة px محسوبة يدوياً (كانت بتسبب تداخل
@@ -186,9 +173,7 @@ export default function App() {
             <MenuIcon />
           </button>
 
-          <p className="flex-1 text-center text-sm font-semibold tracking-wide text-amber-800">
-            موافي
-          </p>
+          <p className="flex-1 text-center text-sm font-semibold tracking-wide text-amber-800">Mowafy</p>
 
           <button
             onClick={() => setSearchOpen(true)}
@@ -199,7 +184,7 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => goTo('dashboard')}
+            onClick={() => goTo("dashboard")}
             aria-label="الرئيسية"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-stone-500 hover:bg-stone-50"
           >
@@ -224,7 +209,7 @@ export default function App() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="ابحث عن طالب بالاسم..."
+                  placeholder="ابحث بالاسم أو رقم الهاتف..."
                   className="flex-1 border-0 text-sm outline-none placeholder:text-stone-400"
                 />
                 <button
@@ -237,9 +222,7 @@ export default function App() {
               </div>
 
               {searchQuery.trim() && searchResults.length === 0 && (
-                <p className="py-6 text-center text-sm text-stone-400">
-                  لا يوجد طالب بهذا الاسم.
-                </p>
+                <p className="py-6 text-center text-sm text-stone-400">لا يوجد طالب مطابق.</p>
               )}
 
               {searchResults.length > 0 && (
@@ -251,11 +234,10 @@ export default function App() {
                         className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-right hover:bg-stone-50"
                       >
                         <span>
-                          <span className="block text-sm font-semibold text-stone-900">
-                            {s.name}
-                          </span>
+                          <span className="block text-sm font-semibold text-stone-900">{s.name}</span>
                           <span className="block text-xs text-stone-400">
                             {s.groupName}
+                            {s.parentPhone ? ` — ${s.parentPhone}` : ""}
                           </span>
                         </span>
                         {!!s.isArchived && (
@@ -278,13 +260,12 @@ export default function App() {
             <div className="flex items-center gap-2 text-sm text-amber-900">
               <BellIcon />
               <span>
-                <strong>{activeReminder.groupName}</strong> —{' '}
-                {formatSessionWhen(activeReminder.date)}
+                <strong>{activeReminder.groupName}</strong> — {formatSessionWhen(activeReminder.date)}
               </span>
             </div>
             <div className="flex shrink-0 gap-2">
               <button
-                onClick={() => goTo('scanner')}
+                onClick={() => goTo("scanner")}
                 className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
               >
                 تسجيل حضور
@@ -304,42 +285,38 @@ export default function App() {
       {/* محتوى الشاشة الحالية */}
       {/* ================================================== */}
       <main className="flex-1 pb-20">
-        {view === 'dashboard' && (
+        {view === "dashboard" && (
           <Dashboard
-            onGoToArchive={() => goTo('groups')}
+            onGoToArchive={() => goTo("groups")}
             onStartGroupSession={handleStartGroupSession}
-            onGoToGroups={() => goTo('groups')}
-            onGoToAddStudent={() => goTo('addStudent')}
-            onGoToSettings={() => goTo('settings')}
-            onGoToFinance={() => goTo('finance')}
-            onGoToStatistics={() => goTo('statistics')}
+            onGoToGroups={() => goTo("groups")}
+            onGoToAddStudent={() => goTo("addStudent")}
+            onGoToSettings={() => goTo("settings")}
+            onGoToFinance={() => goTo("finance")}
+            onGoToStatistics={() => goTo("statistics")}
           />
         )}
-        {view === 'scanner' && (
-          <AttendanceScanner onDone={() => goTo('dashboard')} />
-        )}
-        {view === 'evaluations' && (
+        {view === "scanner" && <AttendanceScanner onDone={() => goTo("dashboard")} />}
+        {view === "evaluations" && (
           <Evaluations
-            onDone={() => goTo('dashboard')}
+            onDone={() => goTo("dashboard")}
             initialGroupId={startSessionGroupId}
+            searchTarget={evalStudentTarget}
+            onConsumedSearchTarget={() => setEvalStudentTarget(null)}
           />
         )}
-        {view === 'payments' && <Payments onDone={() => goTo('dashboard')} />}
-        {view === 'groups' && (
+        {view === "payments" && <Payments onDone={() => goTo("dashboard")} />}
+        {view === "groups" && (
           <Groups
-            onDone={() => goTo('dashboard')}
+            onDone={() => goTo("dashboard")}
             studentTarget={studentTarget}
             onConsumedStudentTarget={() => setStudentTarget(null)}
           />
         )}
-        {view === 'addStudent' && (
-          <AddStudent onDone={() => goTo('dashboard')} />
-        )}
-        {view === 'finance' && <Finance onDone={() => goTo('dashboard')} />}
-        {view === 'statistics' && (
-          <Statistics onDone={() => goTo('dashboard')} />
-        )}
-        {view === 'settings' && <Settings onDone={() => goTo('dashboard')} />}
+        {view === "addStudent" && <AddStudent onDone={() => goTo("dashboard")} />}
+        {view === "finance" && <Finance onDone={() => goTo("dashboard")} />}
+        {view === "statistics" && <Statistics onDone={() => goTo("dashboard")} />}
+        {view === "settings" && <Settings onDone={() => goTo("dashboard")} />}
       </main>
 
       {/* ================================================== */}
@@ -355,7 +332,7 @@ export default function App() {
                 key={key}
                 onClick={() => goTo(key)}
                 className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition ${
-                  active ? 'text-amber-800' : 'text-stone-400'
+                  active ? "text-amber-800" : "text-stone-400"
                 }`}
               >
                 <Icon active={active} />
@@ -370,10 +347,7 @@ export default function App() {
       {/* القائمة الجانبية (Sidebar / Hamburger Menu) */}
       {/* ================================================== */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-50"
-          onClick={() => setSidebarOpen(false)}
-        >
+        <div className="fixed inset-0 z-50" onClick={() => setSidebarOpen(false)}>
           {/* الخلفية المعتمة */}
           <div className="absolute inset-0 bg-black/40" />
 
@@ -384,9 +358,7 @@ export default function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-stone-200 px-4 py-4">
-              <p className="text-sm font-bold text-stone-900">
-                الشاشات الإدارية
-              </p>
+              <p className="text-sm font-bold text-stone-900">الشاشات الإدارية</p>
               <button
                 onClick={() => setSidebarOpen(false)}
                 aria-label="إغلاق القائمة"
@@ -405,9 +377,7 @@ export default function App() {
                     key={key}
                     onClick={() => goTo(key)}
                     className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${
-                      active
-                        ? 'bg-amber-50 text-amber-800'
-                        : 'text-stone-500 hover:bg-stone-50'
+                      active ? "bg-amber-50 text-amber-800" : "text-stone-500 hover:bg-stone-50"
                     }`}
                   >
                     <Icon active={active} />
@@ -419,8 +389,7 @@ export default function App() {
 
             <div className="mt-auto border-t border-stone-200 p-4">
               <p className="text-[11px] leading-relaxed text-stone-400">
-                يعمل هذا التطبيق بالكامل محلياً على جهازك — لا يتم رفع أي بيانات
-                لأي خادم خارجي.
+                يعمل هذا التطبيق بالكامل محلياً على جهازك — لا يتم رفع أي بيانات لأي خادم خارجي.
               </p>
             </div>
           </div>
@@ -437,9 +406,9 @@ function iconProps(active) {
   return {
     width: 20,
     height: 20,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
     strokeWidth: active ? 2.4 : 2,
   };
 }
@@ -465,7 +434,7 @@ function ScanIcon({ active }) {
 }
 function StarIcon({ active }) {
   return (
-    <svg {...iconProps(active)} fill={active ? 'currentColor' : 'none'}>
+    <svg {...iconProps(active)} fill={active ? "currentColor" : "none"}>
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
     </svg>
   );
@@ -526,15 +495,7 @@ function SettingsIcon({ active }) {
 }
 function BellIcon() {
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      className="shrink-0"
-    >
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
       <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
       <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
     </svg>
@@ -542,28 +503,14 @@ function BellIcon() {
 }
 function BackIcon() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <polyline points="9 18 15 12 9 6" />
     </svg>
   );
 }
 function MenuIcon() {
   return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <line x1="4" y1="7" x2="20" y2="7" />
       <line x1="4" y1="12" x2="20" y2="12" />
       <line x1="4" y1="17" x2="20" y2="17" />
@@ -572,14 +519,7 @@ function MenuIcon() {
 }
 function SearchIcon() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <circle cx="11" cy="11" r="8" />
       <line x1="21" y1="21" x2="16.65" y2="16.65" />
     </svg>
@@ -587,14 +527,7 @@ function SearchIcon() {
 }
 function CloseIcon() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
