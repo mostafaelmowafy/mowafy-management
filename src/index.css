@@ -1,7 +1,8 @@
 /* src/index.css */
-@tailwind base;
+@import 'tailwindcss';
+/* @tailwind base;
 @tailwind components;
-@tailwind utilities;
+@tailwind utilities; */
 
 /* المتصفحات مش بتدّي كل الأزرار cursor:pointer افتراضياً — نضيفها هنا مرة واحدة
    بدل ما نكرر className="cursor-pointer" يدوياً على كل زر في كل شاشة */
