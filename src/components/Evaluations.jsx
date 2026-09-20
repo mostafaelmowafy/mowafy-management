@@ -6,21 +6,25 @@
 // - كل بند تقييم (تفاعل/واجب/تسميع/امتحان) يُخزَّن كسجل منفصل في db.tasks مربوط
 //   بالطالب والتاريخ ونوع البند (kind)، عبر الفهرس المركب [studentId+date+kind].
 
-import React, { useEffect, useMemo, useState } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
-import { db, todayStr } from "../db/db";
-import { getDefaultTemplate, fillTemplate, buildWhatsAppLink as buildWaLink } from "../lib/whatsappTemplates";
-import { loadSubjects } from "../lib/subjects";
-import { loadPointsSettings } from "../lib/points";
-import { computeSessionScore } from "../lib/scoring";
-import SendQueueDialog from "./SendQueueDialog";
+import { useEffect, useMemo, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db, todayStr } from '../db/db';
+import {
+  getDefaultTemplate,
+  fillTemplate,
+  buildWhatsAppLink as buildWaLink,
+} from '../lib/whatsappTemplates';
+import { loadSubjects } from '../lib/subjects';
+import { loadPointsSettings } from '../lib/points';
+import { computeSessionScore } from '../lib/scoring';
+import SendQueueDialog from './SendQueueDialog';
 
 // ----------------------------------------------------------------------
 // دوال حفظ (Upsert) — تكتب في Dexie مباشرة عند أي تغيير من المدرس
 // ----------------------------------------------------------------------
 async function upsertAttendance(studentId, date, status) {
   const existing = await db.attendance
-    .where("[studentId+date]")
+    .where('[studentId+date]')
     .equals([studentId, date])
     .first();
   if (existing) {
@@ -32,7 +36,7 @@ async function upsertAttendance(studentId, date, status) {
 
 async function upsertTask(studentId, groupId, date, kind, patch) {
   const existing = await db.tasks
-    .where("[studentId+date+kind]")
+    .where('[studentId+date+kind]')
     .equals([studentId, date, kind])
     .first();
   if (existing) {
@@ -44,7 +48,7 @@ async function upsertTask(studentId, groupId, date, kind, patch) {
 
 async function upsertSession(groupId, date, patch) {
   const existing = await db.sessions
-    .where("[groupId+date]")
+    .where('[groupId+date]')
     .equals([groupId, date])
     .first();
   if (existing) {
@@ -54,8 +58,8 @@ async function upsertSession(groupId, date, patch) {
       groupId,
       date,
       hasExam: false,
-      examTotal: "",
-      subject: "",
+      examTotal: '',
+      subject: '',
       hasParticipation: true,
       hasHomework: true,
       hasRecitation: true,
@@ -65,80 +69,99 @@ async function upsertSession(groupId, date, patch) {
 }
 
 // نصوص عربية تُستخدم في الواجهة وفي رسالة الواتساب
-const ATTENDANCE_LABEL = { Present: "حاضر", Absent: "غائب", Excused: "حضر متأخر" };
+const ATTENDANCE_LABEL = {
+  Present: 'حاضر',
+  Absent: 'غائب',
+  Excused: 'حضر متأخر',
+};
 
 // تحويل عدد نجوم الواجب لوصف نصي في رسالة الواتساب (الواجهة نفسها تعرض النجوم كما هي)
 function homeworkLabelFromStars(stars) {
   const s = Number(stars) || 0;
-  if (s === 0) return "لم ينجز";
-  if (s <= 2) return "أنجز بشكل ضعيف";
-  if (s <= 3) return "أنجز بشكل جيد";
-  return "أنجز بشكل كامل"; // (3, 5]
+  if (s === 0) return 'لم ينجز';
+  if (s <= 2) return 'أنجز بشكل ضعيف';
+  if (s <= 3) return 'أنجز بشكل جيد';
+  return 'أنجز بشكل كامل'; // (3, 5]
 }
 
 // تحويل عدد نجوم التسميع لوصف نصي في رسالة الواتساب (نفس منطق الواجب)
 function recitationLabelFromStars(stars) {
   const s = Number(stars) || 0;
-  if (s === 0) return "لم يسمّع";
-  if (s <= 2) return "سمّع بشكل ضعيف";
-  if (s <= 3) return "سمّع بشكل جيد";
-  return "سمّع بشكل كامل"; // (3, 5]
+  if (s === 0) return 'لم يسمّع';
+  if (s <= 2) return 'سمّع بشكل ضعيف';
+  if (s <= 3) return 'سمّع بشكل جيد';
+  return 'سمّع بشكل كامل'; // (3, 5]
 }
 
 // تحويل عدد نجوم التفاعل لوصف نصي في رسالة الواتساب
 function participationLabelFromStars(stars) {
   const s = Number(stars) || 0;
-  if (s === 0) return "سيئ";
-  if (s <= 1) return "ضعيف";
-  if (s <= 2) return "جيد";
-  if (s <= 3) return "جيد جداً";
-  return "ممتاز"; // (3, 5]
+  if (s === 0) return 'سيئ';
+  if (s <= 1) return 'ضعيف';
+  if (s <= 2) return 'جيد';
+  if (s <= 3) return 'جيد جداً';
+  return 'ممتاز'; // (3, 5]
 }
 
 // ========================================================================
-export default function Evaluations({ onDone, initialGroupId, searchTarget, onConsumedSearchTarget }) {
+export default function Evaluations({
+  onDone,
+  initialGroupId,
+  searchTarget,
+  onConsumedSearchTarget,
+}) {
+  // تحديد متعدد للطلاب — لتنفيذ نفس الإجراء (حضور/واجب/تسميع/تفاعل) دفعة واحدة
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [sendQueue, setSendQueue] = useState(null); // مصفوفة [{id,name,link}] أثناء الإرسال المتسلسل الجماعي
+  const [highlightStudentId, setHighlightStudentId] = useState(null); // طالب جاي من البحث
+
   const points = useMemo(() => loadPointsSettings(), []);
   const subjects = useMemo(() => loadSubjects(), []); // فاضية = ميزة المواد غير مفعّلة
 
-  const [groupId, setGroupId] = useState(initialGroupId ? String(initialGroupId) : "");
+  const [groupId, setGroupId] = useState(
+    initialGroupId ? String(initialGroupId) : '',
+  );
   const [date, setDate] = useState(todayStr());
 
   const activeGroups = useLiveQuery(
-    () => db.groups.where("isArchived").equals(0).toArray(),
+    () => db.groups.where('isArchived').equals(0).toArray(),
     [],
-    []
+    [],
   );
 
   useEffect(() => {
     if (!groupId && activeGroups && activeGroups.length > 0) {
-      setGroupId(String(activeGroups[0].id));
+      queueMicrotask(() => {
+        setGroupId(String(activeGroups[0].id));
+      });
     }
   }, [activeGroups, groupId]);
 
   const numericGroupId = groupId ? Number(groupId) : null;
 
   // نتيجة بحث تم اختيارها وأنت داخل شاشة التقييم — نبدّل المجموعة تلقائياً لو الطالب
-  // في مجموعة تانية، ونبرز صفه ونعمل Scroll له
   useEffect(() => {
     if (!searchTarget) return;
-    setGroupId(String(searchTarget.groupId));
-    setHighlightStudentId(searchTarget.studentId);
-    onConsumedSearchTarget?.();
+
+    queueMicrotask(() => {
+      setGroupId(String(searchTarget.groupId));
+      setHighlightStudentId(searchTarget.studentId);
+      onConsumedSearchTarget?.();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTarget]);
 
   useEffect(() => {
     if (!highlightStudentId) return;
     const el = document.getElementById(`eval-student-${highlightStudentId}`);
-    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [highlightStudentId, groupId]);
 
-  // تحديد متعدد للطلاب — لتنفيذ نفس الإجراء (حضور/واجب/تسميع/تفاعل) دفعة واحدة
-  const [selectedIds, setSelectedIds] = useState(new Set());
-  const [sendQueue, setSendQueue] = useState(null); // مصفوفة [{id,name,link}] أثناء الإرسال المتسلسل الجماعي
-  const [highlightStudentId, setHighlightStudentId] = useState(null); // طالب جاي من البحث
   useEffect(() => {
-    setSelectedIds(new Set()); // نفضّي التحديد عند تغيير المجموعة أو التاريخ تفادياً لتطبيق إجراء بالخطأ
+    // نستخدم queueMicrotask لتجنب الـ Cascading Render برضه
+    queueMicrotask(() => {
+      setSelectedIds(new Set());
+    });
   }, [numericGroupId, date]);
 
   function toggleSelect(studentId) {
@@ -151,11 +174,15 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
   }
 
   function toggleSelectAll(allIds) {
-    setSelectedIds((prev) => (prev.size === allIds.length ? new Set() : new Set(allIds)));
+    setSelectedIds((prev) =>
+      prev.size === allIds.length ? new Set() : new Set(allIds),
+    );
   }
 
   async function bulkSetAttendance(status) {
-    await Promise.all(Array.from(selectedIds).map((id) => upsertAttendance(id, date, status)));
+    await Promise.all(
+      Array.from(selectedIds).map((id) => upsertAttendance(id, date, status)),
+    );
   }
 
   async function bulkSetTask(kind, stars) {
@@ -163,23 +190,29 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
       Array.from(selectedIds).map((id) => {
         const student = (students || []).find((s) => s.id === id);
         if (!student) return Promise.resolve();
-        return upsertTask(id, student.groupId, date, kind, { stars, isExcused: false });
-      })
+        return upsertTask(id, student.groupId, date, kind, {
+          stars,
+          isExcused: false,
+        });
+      }),
     );
   }
 
   const session = useLiveQuery(
     () =>
       numericGroupId
-        ? db.sessions.where("[groupId+date]").equals([numericGroupId, date]).first()
+        ? db.sessions
+            .where('[groupId+date]')
+            .equals([numericGroupId, date])
+            .first()
         : Promise.resolve(null),
     [numericGroupId, date],
-    null
+    null,
   );
 
   const hasExam = session?.hasExam ?? false;
-  const examTotal = session?.examTotal ?? "";
-  const subject = session?.subject ?? (subjects[0] || "");
+  const examTotal = session?.examTotal ?? '';
+  const subject = session?.subject ?? (subjects[0] || '');
   // البنود الثلاثة دي مفعّلة افتراضياً (زي السلوك القديم) إلا لو المدرس عطّلها يدوياً لهذا اليوم
   const hasParticipation = session?.hasParticipation ?? true;
   const hasHomework = session?.hasHomework ?? true;
@@ -189,25 +222,25 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
     () =>
       numericGroupId
         ? db.students
-            .where("groupId")
+            .where('groupId')
             .equals(numericGroupId)
             .and((s) => !s.isArchived)
             .toArray()
         : Promise.resolve([]),
     [numericGroupId],
-    []
+    [],
   );
 
   const attendanceForDate = useLiveQuery(
-    () => db.attendance.where("date").equals(date).toArray(),
+    () => db.attendance.where('date').equals(date).toArray(),
     [date],
-    []
+    [],
   );
 
   const tasksForDate = useLiveQuery(
-    () => db.tasks.where("date").equals(date).toArray(),
+    () => db.tasks.where('date').equals(date).toArray(),
     [date],
-    []
+    [],
   );
 
   const attendanceMap = useMemo(() => {
@@ -217,8 +250,8 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
   }, [attendanceForDate]);
 
   const emptyField = { stars: 0, isExcused: false };
-  const emptyExam = { score: "", isExcused: false };
-  const emptyNote = { text: "" };
+  const emptyExam = { score: '', isExcused: false };
+  const emptyNote = { text: '' };
 
   const tasksMap = useMemo(() => {
     const map = new Map(); // studentId -> { participation, homework, recitation, exam, note }
@@ -233,18 +266,22 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
         });
       }
       const entry = map.get(t.studentId);
-      if (t.kind === "participation") entry.participation = { stars: t.stars ?? 0, isExcused: !!t.isExcused };
-      if (t.kind === "homework") entry.homework = { stars: t.stars ?? 0, isExcused: !!t.isExcused };
-      if (t.kind === "recitation") entry.recitation = { stars: t.stars ?? 0, isExcused: !!t.isExcused };
-      if (t.kind === "exam") entry.exam = { score: t.score ?? "", isExcused: !!t.isExcused };
-      if (t.kind === "note") entry.note = { text: t.text || "" };
+      if (t.kind === 'participation')
+        entry.participation = { stars: t.stars ?? 0, isExcused: !!t.isExcused };
+      if (t.kind === 'homework')
+        entry.homework = { stars: t.stars ?? 0, isExcused: !!t.isExcused };
+      if (t.kind === 'recitation')
+        entry.recitation = { stars: t.stars ?? 0, isExcused: !!t.isExcused };
+      if (t.kind === 'exam')
+        entry.exam = { score: t.score ?? '', isExcused: !!t.isExcused };
+      if (t.kind === 'note') entry.note = { text: t.text || '' };
     });
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasksForDate]);
 
   function getStudentEval(studentId) {
-    const attendance = attendanceMap.get(studentId) || "Absent";
+    const attendance = attendanceMap.get(studentId) || 'Absent';
     const defaults = {
       participation: { ...emptyField },
       homework: { ...emptyField },
@@ -256,7 +293,9 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
     return { attendance, ...t };
   }
 
-  const selectedGroup = (activeGroups || []).find((g) => g.id === numericGroupId);
+  const selectedGroup = (activeGroups || []).find(
+    (g) => g.id === numericGroupId,
+  );
 
   function handleBulkSendReports() {
     const items = [];
@@ -297,7 +336,6 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
     if (items.length > 0) setSendQueue(items);
   }
 
-
   const availablePoints =
     points.attendance +
     (hasParticipation ? points.participation : 0) +
@@ -306,7 +344,10 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
     (hasExam ? points.exam : 0);
 
   return (
-    <div dir="rtl" className="min-h-screen bg-stone-50 font-sans text-stone-900">
+    <div
+      dir="rtl"
+      className="min-h-screen bg-stone-50 font-sans text-stone-900"
+    >
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
         {/* الرأس */}
         <header className="mb-6 flex items-center justify-between">
@@ -325,7 +366,9 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
         <div className="mb-6 rounded-2xl border border-stone-200 bg-white p-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-stone-900">المجموعة</label>
+              <label className="mb-1.5 block text-sm font-medium text-stone-900">
+                المجموعة
+              </label>
               <select
                 value={groupId}
                 onChange={(e) => setGroupId(e.target.value)}
@@ -343,7 +386,9 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-stone-900">التاريخ</label>
+              <label className="mb-1.5 block text-sm font-medium text-stone-900">
+                التاريخ
+              </label>
               <input
                 type="date"
                 value={date}
@@ -354,11 +399,16 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
 
             {subjects.length > 0 && (
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-stone-900">المادة</label>
+                <label className="mb-1.5 block text-sm font-medium text-stone-900">
+                  المادة
+                </label>
                 <select
                   value={subject}
                   onChange={(e) =>
-                    numericGroupId && upsertSession(numericGroupId, date, { subject: e.target.value })
+                    numericGroupId &&
+                    upsertSession(numericGroupId, date, {
+                      subject: e.target.value,
+                    })
                   }
                   className="w-full rounded-lg border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-amber-800 focus:ring-2 focus:ring-amber-100"
                 >
@@ -383,7 +433,10 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
                   value={examTotal}
                   onChange={(e) =>
                     numericGroupId &&
-                    upsertSession(numericGroupId, date, { hasExam: true, examTotal: e.target.value })
+                    upsertSession(numericGroupId, date, {
+                      hasExam: true,
+                      examTotal: e.target.value,
+                    })
                   }
                   className="w-full rounded-lg border border-stone-200 px-3 py-2.5 text-sm outline-none focus:border-amber-800 focus:ring-2 focus:ring-amber-100"
                 />
@@ -401,7 +454,7 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
                 numericGroupId &&
                 upsertSession(numericGroupId, date, {
                   hasExam: checked,
-                  examTotal: checked ? examTotal || "" : "",
+                  examTotal: checked ? examTotal || '' : '',
                 })
               }
             />
@@ -410,7 +463,8 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
               checked={hasHomework}
               disabled={!numericGroupId}
               onChange={(checked) =>
-                numericGroupId && upsertSession(numericGroupId, date, { hasHomework: checked })
+                numericGroupId &&
+                upsertSession(numericGroupId, date, { hasHomework: checked })
               }
             />
             <SessionToggle
@@ -418,7 +472,8 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
               checked={hasRecitation}
               disabled={!numericGroupId}
               onChange={(checked) =>
-                numericGroupId && upsertSession(numericGroupId, date, { hasRecitation: checked })
+                numericGroupId &&
+                upsertSession(numericGroupId, date, { hasRecitation: checked })
               }
             />
             <SessionToggle
@@ -426,12 +481,17 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
               checked={hasParticipation}
               disabled={!numericGroupId}
               onChange={(checked) =>
-                numericGroupId && upsertSession(numericGroupId, date, { hasParticipation: checked })
+                numericGroupId &&
+                upsertSession(numericGroupId, date, {
+                  hasParticipation: checked,
+                })
               }
             />
           </div>
 
-          <p className="mt-3 text-xs text-stone-400">مجموع نقاط الحصة: {availablePoints}</p>
+          <p className="mt-3 text-xs text-stone-400">
+            مجموع نقاط الحصة: {availablePoints}
+          </p>
         </div>
 
         {!numericGroupId && (
@@ -452,14 +512,18 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
               <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-stone-700">
                 <input
                   type="checkbox"
-                  checked={selectedIds.size === students.length && students.length > 0}
+                  checked={
+                    selectedIds.size === students.length && students.length > 0
+                  }
                   onChange={() => toggleSelectAll(students.map((s) => s.id))}
                   className="h-4 w-4 rounded border-stone-200 text-amber-800 focus:ring-amber-200"
                 />
                 تحديد الكل
               </label>
               {selectedIds.size > 0 && (
-                <span className="text-xs text-stone-400">{selectedIds.size} طالب محدَّد</span>
+                <span className="text-xs text-stone-400">
+                  {selectedIds.size} طالب محدَّد
+                </span>
               )}
             </div>
 
@@ -493,26 +557,50 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
                 إجراء جماعي لـ {selectedIds.size}:
               </span>
 
-              <BulkButton label="تعليم حاضر" onClick={() => bulkSetAttendance("Present")} />
-              <BulkButton label="تعليم غائب" onClick={() => bulkSetAttendance("Absent")} />
-              <BulkButton label="تعليم حضر متأخر" onClick={() => bulkSetAttendance("Excused")} />
+              <BulkButton
+                label="تعليم حاضر"
+                onClick={() => bulkSetAttendance('Present')}
+              />
+              <BulkButton
+                label="تعليم غائب"
+                onClick={() => bulkSetAttendance('Absent')}
+              />
+              <BulkButton
+                label="تعليم حضر متأخر"
+                onClick={() => bulkSetAttendance('Excused')}
+              />
 
               {hasHomework && (
                 <>
-                  <BulkButton label="الكل: واجب كامل" onClick={() => bulkSetTask("homework", 5)} />
-                  <BulkButton label="الكل: لم ينجز الواجب" onClick={() => bulkSetTask("homework", 0)} />
+                  <BulkButton
+                    label="الكل: واجب كامل"
+                    onClick={() => bulkSetTask('homework', 5)}
+                  />
+                  <BulkButton
+                    label="الكل: لم ينجز الواجب"
+                    onClick={() => bulkSetTask('homework', 0)}
+                  />
                 </>
               )}
               {hasRecitation && (
                 <>
-                  <BulkButton label="الكل: تسميع كامل" onClick={() => bulkSetTask("recitation", 5)} />
+                  <BulkButton
+                    label="الكل: تسميع كامل"
+                    onClick={() => bulkSetTask('recitation', 5)}
+                  />
                 </>
               )}
               {hasParticipation && (
-                <BulkButton label="الكل: تفاعل ممتاز" onClick={() => bulkSetTask("participation", 5)} />
+                <BulkButton
+                  label="الكل: تفاعل ممتاز"
+                  onClick={() => bulkSetTask('participation', 5)}
+                />
               )}
 
-              <BulkButton label="📩 إرسال تقارير للمحددين" onClick={handleBulkSendReports} />
+              <BulkButton
+                label="📩 إرسال تقارير للمحددين"
+                onClick={handleBulkSendReports}
+              />
 
               <button
                 onClick={() => setSelectedIds(new Set())}
@@ -524,7 +612,12 @@ export default function Evaluations({ onDone, initialGroupId, searchTarget, onCo
           </div>
         )}
 
-        {sendQueue && <SendQueueDialog items={sendQueue} onClose={() => setSendQueue(null)} />}
+        {sendQueue && (
+          <SendQueueDialog
+            items={sendQueue}
+            onClose={() => setSendQueue(null)}
+          />
+        )}
       </div>
     </div>
   );
@@ -549,7 +642,8 @@ function StudentEvalRow({
   selected,
   onToggleSelect,
 }) {
-  const { attendance, participation, homework, recitation, exam, note } = evalData;
+  const { attendance, participation, homework, recitation, exam, note } =
+    evalData;
 
   const { scoreOutOf10 } = computeSessionScore({
     points,
@@ -567,10 +661,10 @@ function StudentEvalRow({
 
   const scoreColor =
     scoreOutOf10 >= 8
-      ? "text-emerald-600 bg-emerald-50"
+      ? 'text-emerald-600 bg-emerald-50'
       : scoreOutOf10 >= 5
-      ? "text-amber-600 bg-amber-50"
-      : "text-rose-600 bg-rose-50";
+        ? 'text-amber-600 bg-amber-50'
+        : 'text-rose-600 bg-rose-50';
 
   const whatsappHref = student.parentPhone
     ? buildWhatsAppLink(student, group, {
@@ -590,18 +684,26 @@ function StudentEvalRow({
       })
     : null;
 
-  const visibleFieldsCount = 1 + (hasParticipation ? 1 : 0) + (hasHomework ? 1 : 0) + (hasRecitation ? 1 : 0) + (hasExam ? 1 : 0);
-  const gridColsClass = visibleFieldsCount >= 4 ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-3";
+  const visibleFieldsCount =
+    1 +
+    (hasParticipation ? 1 : 0) +
+    (hasHomework ? 1 : 0) +
+    (hasRecitation ? 1 : 0) +
+    (hasExam ? 1 : 0);
+  const gridColsClass =
+    visibleFieldsCount >= 4
+      ? 'sm:grid-cols-3 lg:grid-cols-5'
+      : 'sm:grid-cols-3';
 
   return (
     <div
       id={`eval-student-${student.id}`}
       className={`rounded-2xl border p-4 transition ${
         selected
-          ? "border-amber-800 bg-amber-50"
+          ? 'border-amber-800 bg-amber-50'
           : highlighted
-          ? "border-amber-600 bg-amber-50 ring-2 ring-amber-300"
-          : "border-stone-200 bg-white"
+            ? 'border-amber-600 bg-amber-50 ring-2 ring-amber-300'
+            : 'border-stone-200 bg-white'
       }`}
     >
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -612,9 +714,13 @@ function StudentEvalRow({
             onChange={onToggleSelect}
             className="h-4 w-4 shrink-0 rounded border-stone-200 text-amber-800 focus:ring-amber-200"
           />
-          <span className="truncate font-semibold text-stone-900">{student.name}</span>
+          <span className="truncate font-semibold text-stone-900">
+            {student.name}
+          </span>
         </label>
-        <span className={`shrink-0 rounded-full px-3 py-1 text-sm font-bold ${scoreColor}`}>
+        <span
+          className={`shrink-0 rounded-full px-3 py-1 text-sm font-bold ${scoreColor}`}
+        >
           {scoreOutOf10} / 10
         </span>
       </div>
@@ -633,7 +739,10 @@ function StudentEvalRow({
             <StarRating
               value={participation.stars}
               onChange={(stars) =>
-                upsertTask(student.id, student.groupId, date, "participation", { stars, isExcused: false })
+                upsertTask(student.id, student.groupId, date, 'participation', {
+                  stars,
+                  isExcused: false,
+                })
               }
             />
           </FieldGroup>
@@ -644,7 +753,10 @@ function StudentEvalRow({
             <StarRating
               value={homework.stars}
               onChange={(stars) =>
-                upsertTask(student.id, student.groupId, date, "homework", { stars, isExcused: false })
+                upsertTask(student.id, student.groupId, date, 'homework', {
+                  stars,
+                  isExcused: false,
+                })
               }
             />
           </FieldGroup>
@@ -655,22 +767,25 @@ function StudentEvalRow({
             <StarRating
               value={recitation.stars}
               onChange={(stars) =>
-                upsertTask(student.id, student.groupId, date, "recitation", { stars, isExcused: false })
+                upsertTask(student.id, student.groupId, date, 'recitation', {
+                  stars,
+                  isExcused: false,
+                })
               }
             />
           </FieldGroup>
         )}
 
         {hasExam && (
-          <FieldGroup label={`الامتحان (من ${examTotal || "؟"})`}>
+          <FieldGroup label={`الامتحان (من ${examTotal || '؟'})`}>
             <input
               type="number"
               min="0"
               max={examTotal || undefined}
               value={exam.score}
               onChange={(e) =>
-                upsertTask(student.id, student.groupId, date, "exam", {
-                  score: e.target.value === "" ? "" : Number(e.target.value),
+                upsertTask(student.id, student.groupId, date, 'exam', {
+                  score: e.target.value === '' ? '' : Number(e.target.value),
                   isExcused: false,
                 })
               }
@@ -683,12 +798,16 @@ function StudentEvalRow({
 
       {/* ملاحظة حرة عن الطالب لهذه الحصة — اختيارية، ولو فاضية بتتجاهل تماماً من رسالة الواتساب */}
       <div className="mt-3">
-        <label className="mb-1 block text-xs font-medium text-stone-500">ملاحظة (اختياري)</label>
+        <label className="mb-1 block text-xs font-medium text-stone-500">
+          ملاحظة (اختياري)
+        </label>
         <input
           type="text"
           value={note.text}
           onChange={(e) =>
-            upsertTask(student.id, student.groupId, date, "note", { text: e.target.value })
+            upsertTask(student.id, student.groupId, date, 'note', {
+              text: e.target.value,
+            })
           }
           placeholder="مثلاً: نسي الكتاب المدرسي..."
           className={selectClass}
@@ -713,12 +832,14 @@ function StudentEvalRow({
 }
 
 const selectClass =
-  "w-full rounded-lg border border-stone-200 px-2.5 py-2 text-sm outline-none focus:border-amber-800 focus:ring-2 focus:ring-amber-100";
+  'w-full rounded-lg border border-stone-200 px-2.5 py-2 text-sm outline-none focus:border-amber-800 focus:ring-2 focus:ring-amber-100';
 
 function FieldGroup({ label, children }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-stone-500">{label}</label>
+      <label className="mb-1 block text-xs font-medium text-stone-500">
+        {label}
+      </label>
       {children}
     </div>
   );
@@ -727,9 +848,21 @@ function FieldGroup({ label, children }) {
 // أزرار الحضور المتجاورة (بدل القائمة المنسدلة) — أوضح وأسرع بالضغط بإصبع واحد
 function AttendanceSegmented({ value, onChange }) {
   const options = [
-    { key: "Present", label: "حاضر", activeClass: "bg-emerald-600 text-white border-emerald-600" },
-    { key: "Absent", label: "غائب", activeClass: "bg-rose-600 text-white border-rose-600" },
-    { key: "Excused", label: "حضر متأخر", activeClass: "bg-amber-600 text-white border-amber-600" },
+    {
+      key: 'Present',
+      label: 'حاضر',
+      activeClass: 'bg-emerald-600 text-white border-emerald-600',
+    },
+    {
+      key: 'Absent',
+      label: 'غائب',
+      activeClass: 'bg-rose-600 text-white border-rose-600',
+    },
+    {
+      key: 'Excused',
+      label: 'حضر متأخر',
+      activeClass: 'bg-amber-600 text-white border-amber-600',
+    },
   ];
   return (
     <div className="flex gap-1.5">
@@ -739,7 +872,9 @@ function AttendanceSegmented({ value, onChange }) {
           type="button"
           onClick={() => onChange(opt.key)}
           className={`flex-1 rounded-lg border px-2 py-2 text-xs font-semibold transition ${
-            value === opt.key ? opt.activeClass : "border-stone-200 text-stone-500 hover:bg-stone-50"
+            value === opt.key
+              ? opt.activeClass
+              : 'border-stone-200 text-stone-500 hover:bg-stone-50'
           }`}
         >
           {opt.label}
@@ -767,12 +902,12 @@ function ToggleSwitch({ checked, onChange, disabled }) {
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-40 ${
-        checked ? "bg-amber-800" : "bg-stone-300"
+        checked ? 'bg-amber-800' : 'bg-stone-300'
       }`}
     >
       <span
         className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
-          checked ? "right-0.5" : "right-[22px]"
+          checked ? 'right-0.5' : 'right-[22px]'
         }`}
       />
     </button>
@@ -820,46 +955,57 @@ function buildWhatsAppLink(
     note,
     scoreOutOf10,
   },
-  phone = student.parentPhone
+  phone = student.parentPhone,
 ) {
-  const template = getDefaultTemplate("evaluation");
+  const template = getDefaultTemplate('evaluation');
   if (!template) return null;
 
-  const attendanceLabel = ATTENDANCE_LABEL[attendance] || "غائب";
+  const attendanceLabel = ATTENDANCE_LABEL[attendance] || 'غائب';
 
   // نبني سطور البنود ديناميكياً — أي بند مُعطَّل لهذه الحصة (hasX = false) ببساطة
   // مش بيدخل القائمة، فمش هيظهر في الرسالة النهائية إطلاقاً
   const itemLines = [];
-  if (hasParticipation) itemLines.push(`التفاعل: ${participationLabelFromStars(participation.stars)}`);
-  if (hasHomework) itemLines.push(`الواجب: ${homeworkLabelFromStars(homework.stars)}`);
-  if (hasRecitation) itemLines.push(`التسميع: ${recitationLabelFromStars(recitation.stars)}`);
+  if (hasParticipation)
+    itemLines.push(
+      `التفاعل: ${participationLabelFromStars(participation.stars)}`,
+    );
+  if (hasHomework)
+    itemLines.push(`الواجب: ${homeworkLabelFromStars(homework.stars)}`);
+  if (hasRecitation)
+    itemLines.push(`التسميع: ${recitationLabelFromStars(recitation.stars)}`);
   if (hasExam) {
     const examScoreLabel =
-      exam.score !== "" && exam.score !== null ? `${exam.score}/${examTotal || "؟"}` : "لم يُسجَّل";
+      exam.score !== '' && exam.score !== null
+        ? `${exam.score}/${examTotal || '؟'}`
+        : 'لم يُسجَّل';
     itemLines.push(`الامتحان: ${examScoreLabel}`);
   }
 
   let message = fillTemplate(template.body, {
-    "[اسم_الطالب]": student.name,
-    "[المجموعة]": group?.groupName || "",
-    "[المادة]": subject || "غير محدد",
-    "[حالة_الحضور]": attendanceLabel,
-    "[بنود_التقييم]": itemLines.join("\n"),
+    '[اسم_الطالب]': student.name,
+    '[المجموعة]': group?.groupName || '',
+    '[المادة]': subject || 'غير محدد',
+    '[حالة_الحضور]': attendanceLabel,
+    '[بنود_التقييم]': itemLines.join('\n'),
     // نفس البيانات متاحة كمتغيرات فردية أيضاً — لتوافق أي قالب مخصَّص قديم
-    "[نجوم_الواجب]": hasHomework ? homeworkLabelFromStars(homework.stars) : "",
-    "[نجوم_التسميع]": hasRecitation ? recitationLabelFromStars(recitation.stars) : "",
-    "[نجوم_التفاعل]": hasParticipation ? participationLabelFromStars(participation.stars) : "",
-    "[درجة_الامتحان]": hasExam
-      ? exam.score !== "" && exam.score !== null
-        ? `${exam.score}/${examTotal || "؟"}`
-        : "لم يُسجَّل"
-      : "لا يوجد امتحان",
-    "[الدرجة_النهائية_للامتحان]": hasExam ? String(examTotal || "") : "لا يوجد",
-    "[التقييم_العام]": `${scoreOutOf10}/10`,
-    "[اسم_الشهر]": "",
-    "[المبلغ]": "",
-    "[الفترة]": "",
-    "[التقييم_التراكمي]": "",
+    '[نجوم_الواجب]': hasHomework ? homeworkLabelFromStars(homework.stars) : '',
+    '[نجوم_التسميع]': hasRecitation
+      ? recitationLabelFromStars(recitation.stars)
+      : '',
+    '[نجوم_التفاعل]': hasParticipation
+      ? participationLabelFromStars(participation.stars)
+      : '',
+    '[درجة_الامتحان]': hasExam
+      ? exam.score !== '' && exam.score !== null
+        ? `${exam.score}/${examTotal || '؟'}`
+        : 'لم يُسجَّل'
+      : 'لا يوجد امتحان',
+    '[الدرجة_النهائية_للامتحان]': hasExam ? String(examTotal || '') : 'لا يوجد',
+    '[التقييم_العام]': `${scoreOutOf10}/10`,
+    '[اسم_الشهر]': '',
+    '[المبلغ]': '',
+    '[الفترة]': '',
+    '[التقييم_التراكمي]': '',
   });
 
   // الملاحظة تُضاف فقط لو مكتوبة فعلاً — لو فاضية، تُتجاهَل تماماً من الرسالة
@@ -876,7 +1022,9 @@ function buildWhatsAppLink(
 function StarRating({ value, onChange, disabled }) {
   const stars = [1, 2, 3, 4, 5];
   return (
-    <div className={`flex items-center gap-0.5 ${disabled ? "opacity-40" : ""}`}>
+    <div
+      className={`flex items-center gap-0.5 ${disabled ? 'opacity-40' : ''}`}
+    >
       {stars.map((n) => {
         const filled = n <= Math.round(value || 0);
         return (
@@ -902,8 +1050,8 @@ function StarIcon({ filled }) {
       width="20"
       height="20"
       viewBox="0 0 24 24"
-      fill={filled ? "#f59e0b" : "none"}
-      stroke={filled ? "#f59e0b" : "#cbd5e1"}
+      fill={filled ? '#f59e0b' : 'none'}
+      stroke={filled ? '#f59e0b' : '#cbd5e1'}
       strokeWidth="1.5"
     >
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
