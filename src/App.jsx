@@ -49,6 +49,7 @@ export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [studentTarget, setStudentTarget] = useState(null); // { groupId, studentId } — نتيجة بحث تم اختيارها
+  const [evalStudentTarget, setEvalStudentTarget] = useState(null); // نتيجة بحث وأنت داخل شاشة التقييم
   const notifiedKeysRef = useRef(new Set()); // يمنع تكرار إشعار المتصفح الأصلي لنفس الموعد
 
   // كل الطلاب والمجموعات محمَّلين دائماً بخفة (بيانات نصية بسيطة) لدعم البحث الفوري
@@ -64,7 +65,12 @@ export default function App() {
     const q = searchQuery.trim();
     if (!q) return [];
     return (allStudents || [])
-      .filter((s) => s.name.includes(q))
+      .filter(
+        (s) =>
+          s.name.includes(q) ||
+          (s.phone || "").includes(q) ||
+          (s.parentPhone || "").includes(q)
+      )
       .slice(0, 8)
       .map((s) => ({ ...s, groupName: groupNameById.get(s.groupId) || "بدون مجموعة" }));
   }, [allStudents, searchQuery, groupNameById]);
@@ -75,9 +81,15 @@ export default function App() {
   }
 
   function goToStudent(student) {
-    setStudentTarget({ groupId: student.groupId, studentId: student.id });
     setSearchOpen(false);
     setSearchQuery("");
+    // لو أنت فاتح شاشة "تقييم الحصة" بالفعل، البحث يجيبلك الطالب في نفس الشاشة
+    // (يبدّل المجموعة تلقائياً لو لازم ويبرز صفه) بدل ما ينقلك لمكان تاني
+    if (view === "evaluations") {
+      setEvalStudentTarget({ groupId: student.groupId, studentId: student.id });
+      return;
+    }
+    setStudentTarget({ groupId: student.groupId, studentId: student.id });
     goTo("groups");
   }
 
@@ -197,7 +209,7 @@ export default function App() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="ابحث عن طالب بالاسم..."
+                  placeholder="ابحث بالاسم أو رقم الهاتف..."
                   className="flex-1 border-0 text-sm outline-none placeholder:text-stone-400"
                 />
                 <button
@@ -210,7 +222,7 @@ export default function App() {
               </div>
 
               {searchQuery.trim() && searchResults.length === 0 && (
-                <p className="py-6 text-center text-sm text-stone-400">لا يوجد طالب بهذا الاسم.</p>
+                <p className="py-6 text-center text-sm text-stone-400">لا يوجد طالب مطابق.</p>
               )}
 
               {searchResults.length > 0 && (
@@ -223,7 +235,10 @@ export default function App() {
                       >
                         <span>
                           <span className="block text-sm font-semibold text-stone-900">{s.name}</span>
-                          <span className="block text-xs text-stone-400">{s.groupName}</span>
+                          <span className="block text-xs text-stone-400">
+                            {s.groupName}
+                            {s.parentPhone ? ` — ${s.parentPhone}` : ""}
+                          </span>
                         </span>
                         {!!s.isArchived && (
                           <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-500">
@@ -283,7 +298,12 @@ export default function App() {
         )}
         {view === "scanner" && <AttendanceScanner onDone={() => goTo("dashboard")} />}
         {view === "evaluations" && (
-          <Evaluations onDone={() => goTo("dashboard")} initialGroupId={startSessionGroupId} />
+          <Evaluations
+            onDone={() => goTo("dashboard")}
+            initialGroupId={startSessionGroupId}
+            searchTarget={evalStudentTarget}
+            onConsumedSearchTarget={() => setEvalStudentTarget(null)}
+          />
         )}
         {view === "payments" && <Payments onDone={() => goTo("dashboard")} />}
         {view === "groups" && (

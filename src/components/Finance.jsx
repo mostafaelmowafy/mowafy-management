@@ -65,8 +65,9 @@ export default function Finance({ onDone }) {
 
     return (activeGroups || []).map((group) => {
       const students = studentsByGroup.get(group.id) || [];
-      const exemptStudents = students.filter((s) => (s.feeExemptMonths || []).includes(month));
-      const payableStudents = students.filter((s) => !(s.feeExemptMonths || []).includes(month));
+      const isExemptFn = (s) => !!s.feeExemptPermanent || (s.feeExemptMonths || []).includes(month);
+      const exemptStudents = students.filter(isExemptFn);
+      const payableStudents = students.filter((s) => !isExemptFn(s));
 
       const paidStudents = students.filter((s) => paymentsByStudent.has(s.id));
       const collected = paidStudents.reduce((sum, s) => sum + paymentsByStudent.get(s.id), 0);

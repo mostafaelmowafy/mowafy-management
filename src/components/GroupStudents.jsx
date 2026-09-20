@@ -178,6 +178,7 @@ function EditStudentDialog({ student, groups, onClose }) {
   const [monthToExclude, setMonthToExclude] = useState("");
   const [feeExemptMonths, setFeeExemptMonths] = useState(student.feeExemptMonths || []);
   const [monthToExempt, setMonthToExempt] = useState("");
+  const [feeExemptPermanent, setFeeExemptPermanent] = useState(!!student.feeExemptPermanent);
 
   const {
     register,
@@ -220,6 +221,7 @@ function EditStudentDialog({ student, groups, onClose }) {
       groupId: Number(data.groupId),
       excludedMonths,
       feeExemptMonths,
+      feeExemptPermanent: feeExemptPermanent ? 1 : 0,
     });
     onClose();
   }
@@ -342,7 +344,22 @@ function EditStudentDialog({ student, groups, onClose }) {
             أو انسحب مؤقتاً. لا علاقة له بالتقييم أو الحضور إطلاقاً.
           </p>
 
-          {feeExemptMonths.length > 0 && (
+          <label className="mb-3 flex cursor-pointer items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+            <span>
+              <span className="block text-sm font-semibold text-emerald-800">إعفاء دائم</span>
+              <span className="block text-[11px] text-emerald-700">
+                معفى من كل الشهور بدون الحاجة لإضافتها واحداً واحداً
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={feeExemptPermanent}
+              onChange={(e) => setFeeExemptPermanent(e.target.checked)}
+              className="h-5 w-5 shrink-0 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-400"
+            />
+          </label>
+
+          {!feeExemptPermanent && feeExemptMonths.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-1.5">
               {feeExemptMonths.map((m) => (
                 <span
@@ -363,7 +380,7 @@ function EditStudentDialog({ student, groups, onClose }) {
             </div>
           )}
 
-          <div className="flex gap-2">
+          <div className={`flex gap-2 ${feeExemptPermanent ? "opacity-40 pointer-events-none" : ""}`}>
             <input
               type="month"
               value={monthToExempt}

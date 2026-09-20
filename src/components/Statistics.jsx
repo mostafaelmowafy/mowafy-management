@@ -653,6 +653,7 @@ function StudentReportDialog({ student, groupName, daily, onClose }) {
           participationAvg={participationAvg}
           examEntries={examEntries}
           perSubjectAverages={perSubjectAverages}
+          sendLink={sendLink}
           onClose={() => setShowPrintView(false)}
         />
       )}
@@ -684,6 +685,7 @@ function PrintableReportView({
   participationAvg,
   examEntries,
   perSubjectAverages = [],
+  sendLink,
   onClose,
 }) {
   return (
@@ -701,20 +703,47 @@ function PrintableReportView({
       `}</style>
 
       {/* شريط علوي (يختفي عند الطباعة تلقائياً لأنه خارج printable-report) */}
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-stone-200 bg-white px-4 py-3">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b border-stone-200 bg-white px-4 py-3">
+        {sendLink && (
+          <a
+            href={sendLink}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+          >
+            <WhatsAppIcon />
+            إرسال لولي الأمر
+          </a>
+        )}
         <button
           onClick={() => window.print()}
-          className="rounded-lg bg-amber-800 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-900"
+          className="flex items-center gap-1.5 rounded-lg bg-amber-800 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-900"
         >
-          طباعة / حفظ كـ PDF
+          <PdfIcon />
+          تحميل PDF
+        </button>
+        <button
+          onClick={() => window.print()}
+          className="flex items-center gap-1.5 rounded-lg border border-amber-800 px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-50"
+        >
+          <PrintIcon />
+          طباعة
         </button>
         <button
           onClick={onClose}
-          className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-500 hover:bg-stone-50"
+          className="mr-auto rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-500 hover:bg-stone-50"
         >
           رجوع
         </button>
       </div>
+
+      {/* ملاحظة توضيحية: "تحميل PDF" و"طباعة" الاثنان يفتحان نفس نافذة الطباعة —
+          الفرق في الوجهة اللي تختارها: "حفظ كـ PDF" للتحميل، أو الطابعة للطباعة.
+          ده قيد من المتصفح (مفيش API لتحميل PDF مباشرة يدعم العربية بشكل صحيح)،
+          فوضّحناه للمستخدم في النص أسفل الأزرار بدل ما يبدو إن الزرين مكرَّرين */}
+      <p className="border-b border-stone-100 bg-stone-50 px-4 py-2 text-[11px] text-stone-500">
+        في نافذة الطباعة: اختر "حفظ كـ PDF" (Save as PDF) للتحميل، أو اختر طابعتك للطباعة المباشرة.
+      </p>
 
       <div id="printable-report" dir="rtl" className="mx-auto max-w-2xl px-6 py-8 font-sans text-stone-900">
         <p className="mb-1 text-sm font-semibold text-amber-800">Mowafy</p>
@@ -850,6 +879,15 @@ function PrintableReportView({
   );
 }
 
+function PrintIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="6 9 6 2 18 2 18 9" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect x="6" y="14" width="12" height="8" />
+    </svg>
+  );
+}
 function PdfIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

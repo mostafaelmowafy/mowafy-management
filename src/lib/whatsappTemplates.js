@@ -17,6 +17,7 @@ export const TEMPLATE_VARIABLES = [
   "[المجموعة]",
   "[المادة]",
   "[حالة_الحضور]",
+  "[بنود_التقييم]",
   "[نجوم_الواجب]",
   "[نجوم_التسميع]",
   "[نجوم_التفاعل]",
@@ -66,9 +67,7 @@ function defaultTemplates() {
         "المادة: [المادة]\n" +
         "━━━━━━━━━━\n" +
         "الحضور: [حالة_الحضور]\n" +
-        "الواجب: [نجوم_الواجب]\n" +
-        "التسميع: [نجوم_التسميع]\n" +
-        "التفاعل: [نجوم_التفاعل]\n" +
+        "[بنود_التقييم]\n" +
         "━━━━━━━━━━\n\n" +
         "🎯 التقييم العام: [التقييم_العام]/10",
       isDefault: true,
@@ -115,18 +114,21 @@ export function loadTemplates() {
       templates = [...templates, ...missingDefaults];
     }
 
-    // ترقية مستهدَفة إضافية: إضافة سطر "التسميع" (ميزة جديدة) للقالب الافتراضي
-    // الأصلي لفئة "متابعة التقييم" تحديداً (id === "default-evaluation") فقط —
-    // أي قالب اتعمله المدرس بنفسه أو غيّر اسمه له id مختلف، فمش بنلمسه إطلاقاً
+    // ترقية مستهدَفة: تحويل القالب الافتراضي الأصلي لفئة "متابعة التقييم" للصيغة
+    // الجديدة الموحَّدة [بنود_التقييم] (اللي بتخفي أي بند معطَّل تلقائياً) — نطبّقها
+    // فقط على id === "default-evaluation" ولو لسه على الصيغة القديمة؛ أي قالب
+    // اتعمله المدرس بنفسه له id مختلف فمش بنلمسه إطلاقاً
     let migratedBody = false;
     templates = templates.map((t) => {
-      if (t.id === "default-evaluation" && !t.body.includes("[نجوم_التسميع]")) {
+      if (t.id === "default-evaluation" && !t.body.includes("[بنود_التقييم]")) {
         migratedBody = true;
-        const recitationLine = "- التسميع: [نجوم_التسميع]";
-        const newBody = t.body.includes("- الواجب:")
-          ? t.body.replace(/(- الواجب:[^\n]*)/, `$1\n${recitationLine}`)
-          : `${t.body}\n${recitationLine}`;
-        return { ...t, body: newBody };
+        let body = t.body;
+        // نشيل السطور الثابتة القديمة ونحطّ المتغير الموحَّد مكانها
+        body = body.replace(/^.*\[نجوم_التفاعل\].*$\n?/gm, "");
+        body = body.replace(/^.*\[نجوم_التسميع\].*$\n?/gm, "");
+        body = body.replace(/^(.*\[نجوم_الواجب\].*)$/m, "[بنود_التقييم]");
+        if (!body.includes("[بنود_التقييم]")) body += "\n[بنود_التقييم]";
+        return { ...t, body };
       }
       return t;
     });

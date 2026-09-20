@@ -96,7 +96,7 @@ function participationLabelFromStars(stars) {
 }
 
 // ========================================================================
-export default function Evaluations({ onDone, initialGroupId }) {
+export default function Evaluations({ onDone, initialGroupId, searchTarget, onConsumedSearchTarget }) {
   const points = useMemo(() => loadPointsSettings(), []);
   const subjects = useMemo(() => loadSubjects(), []); // فاضية = ميزة المواد غير مفعّلة
 
@@ -117,9 +117,26 @@ export default function Evaluations({ onDone, initialGroupId }) {
 
   const numericGroupId = groupId ? Number(groupId) : null;
 
+  // نتيجة بحث تم اختيارها وأنت داخل شاشة التقييم — نبدّل المجموعة تلقائياً لو الطالب
+  // في مجموعة تانية، ونبرز صفه ونعمل Scroll له
+  useEffect(() => {
+    if (!searchTarget) return;
+    setGroupId(String(searchTarget.groupId));
+    setHighlightStudentId(searchTarget.studentId);
+    onConsumedSearchTarget?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTarget]);
+
+  useEffect(() => {
+    if (!highlightStudentId) return;
+    const el = document.getElementById(`eval-student-${highlightStudentId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightStudentId, groupId]);
+
   // تحديد متعدد للطلاب — لتنفيذ نفس الإجراء (حضور/واجب/تسميع/تفاعل) دفعة واحدة
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [sendQueue, setSendQueue] = useState(null); // مصفوفة [{id,name,link}] أثناء الإرسال المتسلسل الجماعي
+  const [highlightStudentId, setHighlightStudentId] = useState(null); // طالب جاي من البحث
   useEffect(() => {
     setSelectedIds(new Set()); // نفضّي التحديد عند تغيير المجموعة أو التاريخ تفادياً لتطبيق إجراء بالخطأ
   }, [numericGroupId, date]);
@@ -267,6 +284,9 @@ export default function Evaluations({ onDone, initialGroupId }) {
         recitation: evalData.recitation,
         exam: evalData.exam,
         hasExam,
+        hasParticipation,
+        hasHomework,
+        hasRecitation,
         examTotal,
         subject,
         note: evalData.note,
@@ -457,6 +477,7 @@ export default function Evaluations({ onDone, initialGroupId }) {
                 hasRecitation={hasRecitation}
                 subject={subject}
                 evalData={getStudentEval(student.id)}
+                highlighted={highlightStudentId === student.id}
                 selected={selectedIds.has(student.id)}
                 onToggleSelect={() => toggleSelect(student.id)}
               />
@@ -524,6 +545,7 @@ function StudentEvalRow({
   hasRecitation,
   subject,
   evalData,
+  highlighted,
   selected,
   onToggleSelect,
 }) {
@@ -558,6 +580,9 @@ function StudentEvalRow({
         recitation,
         exam,
         hasExam,
+        hasParticipation,
+        hasHomework,
+        hasRecitation,
         examTotal,
         subject,
         note,
@@ -570,8 +595,13 @@ function StudentEvalRow({
 
   return (
     <div
+      id={`eval-student-${student.id}`}
       className={`rounded-2xl border p-4 transition ${
-        selected ? "border-amber-800 bg-amber-50" : "border-stone-200 bg-white"
+        selected
+          ? "border-amber-800 bg-amber-50"
+          : highlighted
+          ? "border-amber-600 bg-amber-50 ring-2 ring-amber-300"
+          : "border-stone-200 bg-white"
       }`}
     >
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -600,110 +630,53 @@ function StudentEvalRow({
 
         {hasParticipation && (
           <FieldGroup label="التفاعل">
-            <div className="flex items-center gap-2">
-              <StarRating
-                value={participation.stars}
-                disabled={participation.isExcused}
-                onChange={(stars) =>
-                  upsertTask(student.id, student.groupId, date, "participation", {
-                    stars,
-                    isExcused: false,
-                  })
-                }
-              />
-              <ExcusedCheckbox
-                checked={participation.isExcused}
-                onChange={(checked) =>
-                  upsertTask(student.id, student.groupId, date, "participation", {
-                    stars: participation.stars,
-                    isExcused: checked,
-                  })
-                }
-              />
-            </div>
+            <StarRating
+              value={participation.stars}
+              onChange={(stars) =>
+                upsertTask(student.id, student.groupId, date, "participation", { stars, isExcused: false })
+              }
+            />
           </FieldGroup>
         )}
 
         {hasHomework && (
           <FieldGroup label="الواجب">
-            <div className="flex items-center gap-2">
-              <StarRating
-                value={homework.stars}
-                disabled={homework.isExcused}
-                onChange={(stars) =>
-                  upsertTask(student.id, student.groupId, date, "homework", {
-                    stars,
-                    isExcused: false,
-                  })
-                }
-              />
-              <ExcusedCheckbox
-                checked={homework.isExcused}
-                onChange={(checked) =>
-                  upsertTask(student.id, student.groupId, date, "homework", {
-                    stars: homework.stars,
-                    isExcused: checked,
-                  })
-                }
-              />
-            </div>
+            <StarRating
+              value={homework.stars}
+              onChange={(stars) =>
+                upsertTask(student.id, student.groupId, date, "homework", { stars, isExcused: false })
+              }
+            />
           </FieldGroup>
         )}
 
         {hasRecitation && (
           <FieldGroup label="التسميع">
-            <div className="flex items-center gap-2">
-              <StarRating
-                value={recitation.stars}
-                disabled={recitation.isExcused}
-                onChange={(stars) =>
-                  upsertTask(student.id, student.groupId, date, "recitation", {
-                    stars,
-                    isExcused: false,
-                  })
-                }
-              />
-              <ExcusedCheckbox
-                checked={recitation.isExcused}
-                onChange={(checked) =>
-                  upsertTask(student.id, student.groupId, date, "recitation", {
-                    stars: recitation.stars,
-                    isExcused: checked,
-                  })
-                }
-              />
-            </div>
+            <StarRating
+              value={recitation.stars}
+              onChange={(stars) =>
+                upsertTask(student.id, student.groupId, date, "recitation", { stars, isExcused: false })
+              }
+            />
           </FieldGroup>
         )}
 
         {hasExam && (
           <FieldGroup label={`الامتحان (من ${examTotal || "؟"})`}>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min="0"
-                max={examTotal || undefined}
-                disabled={exam.isExcused}
-                value={exam.score}
-                onChange={(e) =>
-                  upsertTask(student.id, student.groupId, date, "exam", {
-                    score: e.target.value === "" ? "" : Number(e.target.value),
-                    isExcused: false,
-                  })
-                }
-                className={selectClass + " disabled:bg-stone-50 disabled:text-stone-400"}
-                placeholder="الدرجة"
-              />
-              <ExcusedCheckbox
-                checked={exam.isExcused}
-                onChange={(checked) =>
-                  upsertTask(student.id, student.groupId, date, "exam", {
-                    score: exam.score,
-                    isExcused: checked,
-                  })
-                }
-              />
-            </div>
+            <input
+              type="number"
+              min="0"
+              max={examTotal || undefined}
+              value={exam.score}
+              onChange={(e) =>
+                upsertTask(student.id, student.groupId, date, "exam", {
+                  score: e.target.value === "" ? "" : Number(e.target.value),
+                  isExcused: false,
+                })
+              }
+              className={selectClass}
+              placeholder="الدرجة"
+            />
           </FieldGroup>
         )}
       </div>
@@ -776,20 +749,6 @@ function AttendanceSegmented({ value, onChange }) {
   );
 }
 
-function ExcusedCheckbox({ checked, onChange }) {
-  return (
-    <label className="flex shrink-0 cursor-pointer items-center gap-1 text-xs text-stone-500">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded border-stone-200 text-amber-800 focus:ring-amber-200"
-      />
-      مستثنى
-    </label>
-  );
-}
-
 function SessionToggle({ label, checked, onChange, disabled }) {
   return (
     <label className="flex cursor-pointer items-center justify-between rounded-lg border border-stone-200 px-3 py-2.5">
@@ -846,7 +805,21 @@ function WhatsAppIcon() {
 function buildWhatsAppLink(
   student,
   group,
-  { attendance, participation, homework, recitation, exam, hasExam, examTotal, subject, note, scoreOutOf10 },
+  {
+    attendance,
+    participation,
+    homework,
+    recitation,
+    exam,
+    hasExam,
+    hasParticipation,
+    hasHomework,
+    hasRecitation,
+    examTotal,
+    subject,
+    note,
+    scoreOutOf10,
+  },
   phone = student.parentPhone
 ) {
   const template = getDefaultTemplate("evaluation");
@@ -854,29 +827,33 @@ function buildWhatsAppLink(
 
   const attendanceLabel = ATTENDANCE_LABEL[attendance] || "غائب";
 
-  const homeworkStarsLabel = homework.isExcused ? "مستثنى" : homeworkLabelFromStars(homework.stars);
-  const recitationStarsLabel = recitation.isExcused ? "مستثنى" : recitationLabelFromStars(recitation.stars);
-  const participationStarsLabel = participation.isExcused
-    ? "مستثنى"
-    : participationLabelFromStars(participation.stars);
-
-  const examScoreLabel = !hasExam
-    ? "لا يوجد امتحان"
-    : exam.isExcused
-    ? "مستثنى"
-    : exam.score !== "" && exam.score !== null
-    ? `${exam.score}/${examTotal || "؟"}`
-    : "لم يُسجَّل";
+  // نبني سطور البنود ديناميكياً — أي بند مُعطَّل لهذه الحصة (hasX = false) ببساطة
+  // مش بيدخل القائمة، فمش هيظهر في الرسالة النهائية إطلاقاً
+  const itemLines = [];
+  if (hasParticipation) itemLines.push(`التفاعل: ${participationLabelFromStars(participation.stars)}`);
+  if (hasHomework) itemLines.push(`الواجب: ${homeworkLabelFromStars(homework.stars)}`);
+  if (hasRecitation) itemLines.push(`التسميع: ${recitationLabelFromStars(recitation.stars)}`);
+  if (hasExam) {
+    const examScoreLabel =
+      exam.score !== "" && exam.score !== null ? `${exam.score}/${examTotal || "؟"}` : "لم يُسجَّل";
+    itemLines.push(`الامتحان: ${examScoreLabel}`);
+  }
 
   let message = fillTemplate(template.body, {
     "[اسم_الطالب]": student.name,
     "[المجموعة]": group?.groupName || "",
     "[المادة]": subject || "غير محدد",
     "[حالة_الحضور]": attendanceLabel,
-    "[نجوم_الواجب]": homeworkStarsLabel,
-    "[نجوم_التسميع]": recitationStarsLabel,
-    "[نجوم_التفاعل]": participationStarsLabel,
-    "[درجة_الامتحان]": examScoreLabel,
+    "[بنود_التقييم]": itemLines.join("\n"),
+    // نفس البيانات متاحة كمتغيرات فردية أيضاً — لتوافق أي قالب مخصَّص قديم
+    "[نجوم_الواجب]": hasHomework ? homeworkLabelFromStars(homework.stars) : "",
+    "[نجوم_التسميع]": hasRecitation ? recitationLabelFromStars(recitation.stars) : "",
+    "[نجوم_التفاعل]": hasParticipation ? participationLabelFromStars(participation.stars) : "",
+    "[درجة_الامتحان]": hasExam
+      ? exam.score !== "" && exam.score !== null
+        ? `${exam.score}/${examTotal || "؟"}`
+        : "لم يُسجَّل"
+      : "لا يوجد امتحان",
     "[الدرجة_النهائية_للامتحان]": hasExam ? String(examTotal || "") : "لا يوجد",
     "[التقييم_العام]": `${scoreOutOf10}/10`,
     "[اسم_الشهر]": "",
@@ -886,8 +863,6 @@ function buildWhatsAppLink(
   });
 
   // الملاحظة تُضاف فقط لو مكتوبة فعلاً — لو فاضية، تُتجاهَل تماماً من الرسالة
-  // (لهذا مش جزء من نظام متغيرات القالب العادي؛ إضافتها كسطر ثابت في القالب كانت
-  // هتسيب سطر فاضٍ دايماً لما ما فيش ملاحظة)
   if (note?.text?.trim()) {
     message += `\n📝 ملاحظة: ${note.text.trim()}`;
   }

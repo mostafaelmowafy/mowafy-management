@@ -61,6 +61,8 @@ db.students.hook("creating", (primKey, obj) => {
   // أشهر مُعفاة من مصروفات الاشتراك (اختياري ومختلف تماماً عن الاستثناء أعلاه —
   // هذا يخص المالية، ذاك يخص التقييم) — نفس شكل التخزين [{"2026-08"}, ...]
   obj.feeExemptMonths = obj.feeExemptMonths || [];
+  // إعفاء دائم من المصروفات (كل الشهور) — مستقل عن قائمة الشهور المفردة أعلاه
+  obj.feeExemptPermanent = obj.feeExemptPermanent ? 1 : 0;
 });
 
 db.groups.hook("creating", (primKey, obj) => {
@@ -134,7 +136,10 @@ export async function getLatePaymentStudents(month = currentMonthStr()) {
   const paidStudentIds = new Set(monthPayments.map((p) => p.studentId));
 
   return activeStudents.filter(
-    (s) => !paidStudentIds.has(s.id) && !(s.feeExemptMonths || []).includes(month)
+    (s) =>
+      !paidStudentIds.has(s.id) &&
+      !s.feeExemptPermanent &&
+      !(s.feeExemptMonths || []).includes(month)
   );
 }
 
